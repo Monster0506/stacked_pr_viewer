@@ -47,7 +47,9 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_selector "#stack-diff-root", visible: :all
 
-    fill_in "comment[line_number]", with: "2"
+    click_diff_line_number
+    assert_selector "form[action='/comments']"
+
     fill_in "comment[body]", with: "why change this?"
     click_button "Comment"
 
@@ -109,5 +111,25 @@ class StackViewTest < ApplicationSystemTestCase
     assert_text "Cumulative diff (2 PRs)"
     assert_text "first change"
     assert_text "second change"
+  end
+
+  private
+
+  def click_diff_line_number
+    Timeout.timeout(Capybara.default_max_wait_time) do
+      loop do
+        clicked = page.evaluate_script(<<~JS)
+          (() => {
+            const numberEl = Array.from(document.querySelectorAll("*"))
+              .filter((el) => el.shadowRoot)
+              .flatMap((el) => Array.from(el.shadowRoot.querySelectorAll("[data-column-number]")))[0];
+            if (numberEl) { numberEl.click(); return true; }
+            return false;
+          })()
+        JS
+        break if clicked
+        sleep 0.1
+      end
+    end
   end
 end

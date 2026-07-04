@@ -33,7 +33,7 @@ function buildMarkReviewedForm(pr) {
   return form;
 }
 
-function buildCommentForm(pr, filePath) {
+function buildCommentForm(pr, filePath, lineNumber) {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
 
   const form = document.createElement("form");
@@ -44,12 +44,15 @@ function buildCommentForm(pr, filePath) {
     <input type="hidden" name="authenticity_token" value="${csrfToken}">
     <input type="hidden" name="comment[pull_request_id]" value="${pr.id}">
     <input type="hidden" name="comment[file_path]" value="${filePath}">
-    <input type="number" name="comment[line_number]" placeholder="line" required
-      class="field-input w-16 mt-0">
-    <input type="text" name="comment[body]" placeholder="Add a comment" required
+    <input type="hidden" name="comment[line_number]" value="${lineNumber}">
+    <span class="muted text-xs font-mono">line ${lineNumber}</span>
+    <input type="text" name="comment[body]" placeholder="Add a comment" required autofocus
       class="field-input flex-1 mt-0">
     <button type="submit" class="btn-ghost">Comment</button>
+    <button type="button" data-role="cancel-comment"
+      class="text-xs font-mono text-neutral-500 hover:text-neutral-200 bg-transparent border-0 cursor-pointer">Cancel</button>
   `;
+  form.querySelector('[data-role="cancel-comment"]').addEventListener("click", () => form.remove());
   return form;
 }
 
@@ -153,11 +156,19 @@ async function renderStack() {
       const fileContainer = document.createElement("div");
       filesWrapper.appendChild(fileContainer);
 
-      const diff = new FileDiff({ themeType: "dark", renderAnnotation: renderCommentAnnotation });
+      let openComposer = null;
+      const diff = new FileDiff({
+        themeType: "dark",
+        renderAnnotation: renderCommentAnnotation,
+        lineHoverHighlight: "number",
+        onLineNumberClick: ({ lineNumber }) => {
+          if (openComposer) openComposer.remove();
+          openComposer = buildCommentForm(pr, fileDiff.name, lineNumber);
+          fileContainer.after(openComposer);
+        }
+      });
       diff.render({ fileDiff, fileContainer, lineAnnotations: commentsForFile.get(fileDiff.name) || [] });
       ensureCoreCSS(fileContainer);
-
-      filesWrapper.appendChild(buildCommentForm(pr, fileDiff.name));
     });
   });
 }
