@@ -47,7 +47,8 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_selector "#stack-diff-root", visible: :all
 
-    click_diff_line_number
+    open_gutter_popup_for_line(1)
+    click_button "Add comment"
     assert_selector "form[data-role='comment-form']"
     page.execute_script("window.__noReloadMarker = true")
 
@@ -80,7 +81,7 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_text "looks good"
 
-    within("[data-comment-id='#{top_level.id}']") { click_button "…" }
+    open_gutter_popup_for_line(1)
     click_button "Reply"
 
     fill_in "Write a reply", with: "thanks!"
@@ -112,12 +113,10 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_text "origianl typo"
 
-    within("[data-comment-id='#{comment.id}']") do
-      click_button "…"
-      click_button "Edit"
-      find("input[type='text']").set("original, fixed")
-      click_button "Save"
-    end
+    open_gutter_popup_for_line(1)
+    click_button "Edit comment"
+    find("input[type='text']").set("original, fixed")
+    click_button "Save"
 
     assert_text "original, fixed"
     assert_no_text "origianl typo"
@@ -145,11 +144,9 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_text "someone else's comment"
 
-    within("[data-comment-id='#{comment.id}']") do
-      click_button "…"
-      assert_no_button "Edit"
-      assert_button "Reply"
-    end
+    open_gutter_popup_for_line(1)
+    assert_no_button "Edit comment"
+    assert_button "Reply"
   end
 
   test "deleting your own comment removes it, including its replies" do
@@ -175,10 +172,8 @@ class StackViewTest < ApplicationSystemTestCase
     assert_text "a reply to delete"
 
     accept_confirm do
-      within("[data-comment-id='#{comment.id}']") do
-        click_button "…"
-        click_button "Delete"
-      end
+      open_gutter_popup_for_line(1)
+      click_button "Delete comment"
     end
 
     assert_no_text "delete me"
@@ -266,7 +261,8 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_text "Cumulative diff (2 PRs)"
 
-    click_diff_line_number
+    open_gutter_popup_for_line(1)
+    click_button "Add comment"
     assert_selector "form[data-role='comment-form']"
 
     fill_in "Add a comment", with: "comment from the cumulative view"
@@ -279,21 +275,34 @@ class StackViewTest < ApplicationSystemTestCase
 
   private
 
-  def click_diff_line_number
+  # Hovers the given line's number column (to trigger @pierre/diffs' gutter
+  # utility placement) then clicks the "..." button it reveals there, waiting
+  # for both the diff to be ready and the popup to render.
+  def open_gutter_popup_for_line(line_number)
     Timeout.timeout(Capybara.default_max_wait_time) do
       loop do
-        clicked = page.evaluate_script(<<~JS)
+        opened = page.evaluate_script(<<~JS)
           (() => {
-            const numberEl = Array.from(document.querySelectorAll("*"))
-              .filter((el) => el.shadowRoot)
-              .flatMap((el) => Array.from(el.shadowRoot.querySelectorAll("[data-column-number]")))[0];
-            if (numberEl) { numberEl.click(); return true; }
+            const containers = Array.from(document.querySelectorAll("*")).filter((el) => el.shadowRoot);
+            for (const fileContainer of containers) {
+              const numberEl = fileContainer.shadowRoot.querySelector('[data-column-number="#{line_number}"]');
+              const button = fileContainer.querySelector("[data-role='gutter-utility-button']");
+              if (numberEl && button) {
+                const rect = numberEl.getBoundingClientRect();
+                numberEl.dispatchEvent(new PointerEvent("pointermove", {
+                  bubbles: true, composed: true, pointerType: "mouse", clientX: rect.x + 2, clientY: rect.y + 2
+                }));
+                button.click();
+                return true;
+              }
+            }
             return false;
           })()
         JS
-        break if clicked
+        break if opened
         sleep 0.1
       end
     end
+    find("[data-role='gutter-popup']", visible: :all)
   end
 end

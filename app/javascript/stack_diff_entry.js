@@ -10,35 +10,58 @@ function ensureCoreCSS(fileContainer) {
   shadowRoot.prepend(coreStyle);
 }
 
-function buildActionsMenu(actions) {
-  const wrapper = document.createElement("span");
-  wrapper.className = "shrink-0";
+// Builds the persistent gutter button handed to @pierre/diffs' renderGutterUtility.
+// The library reuses this single node across renders, repositioning it into
+// whichever line's number column is currently hovered.
+function buildGutterButton() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.role = "gutter-utility-button";
+  button.textContent = "...";
+  button.setAttribute("aria-label", "Line actions");
+  button.className = "bg-neutral-900 border border-neutral-700 text-neutral-300 hover:text-neutral-100 hover:border-neutral-500 text-[10px] font-mono leading-none px-1 py-0.5 cursor-pointer";
+  return button;
+}
 
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.textContent = "…";
-  toggle.className = "text-neutral-500 hover:text-neutral-200 bg-transparent border-0 cursor-pointer px-1";
+function closeGutterPopup() {
+  document.querySelectorAll("[data-role='gutter-popup']").forEach((el) => el.remove());
+}
 
-  const menu = document.createElement("span");
-  menu.className = "hidden ml-1";
-  actions.forEach(({ label, onClick }, index) => {
-    if (index > 0) menu.appendChild(document.createTextNode(" · "));
+// Opens a small floating popup of action buttons anchored under `anchorEl`.
+// Closes on an outside click or after any action is chosen.
+function openGutterPopup(anchorEl, items) {
+  closeGutterPopup();
+  if (!anchorEl || items.length === 0) return;
+
+  const popup = document.createElement("div");
+  popup.dataset.role = "gutter-popup";
+  popup.className = "fixed z-50 bg-neutral-950 border border-neutral-800 py-1 text-xs font-mono";
+  popup.style.minWidth = "8rem";
+
+  items.forEach(({ label, onClick }) => {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = label;
-    button.className = "text-sky-400 hover:text-sky-300 bg-transparent border-0 cursor-pointer";
+    button.className = "block w-full text-left px-3 py-1.5 text-neutral-300 hover:bg-neutral-900 hover:text-sky-400 bg-transparent border-0 cursor-pointer whitespace-nowrap";
     button.addEventListener("click", () => {
-      menu.classList.add("hidden");
+      closeGutterPopup();
       onClick();
     });
-    menu.appendChild(button);
+    popup.appendChild(button);
   });
 
-  toggle.addEventListener("click", () => menu.classList.toggle("hidden"));
+  document.body.appendChild(popup);
+  const rect = anchorEl.getBoundingClientRect();
+  popup.style.top = `${rect.bottom + 4}px`;
+  popup.style.left = `${rect.left}px`;
 
-  wrapper.appendChild(toggle);
-  wrapper.appendChild(menu);
-  return wrapper;
+  setTimeout(() => {
+    document.addEventListener("click", function onOutsideClick(event) {
+      if (popup.contains(event.target)) return;
+      closeGutterPopup();
+      document.removeEventListener("click", onOutsideClick, true);
+    }, true);
+  }, 0);
 }
 
 // Swaps the comment body text for an inline input, PATCHing on save.
@@ -110,10 +133,13 @@ async function requestCommentDelete(comment) {
   return true;
 }
 
-function renderCommentRow(comment, { indent = false, actions = [], onDelete } = {}) {
+// Renders one comment/reply line. Edit/Delete/Reply are no longer inline here --
+// they're offered from the line's gutter "..." popup (see renderFileDiffs) -- but
+// `text`/`bodySpan` are stashed on the row so that popup can still target this row.
+function renderCommentRow(comment, { indent = false } = {}) {
   const row = document.createElement("div");
   row.dataset.commentId = comment.id;
-  row.className = `flex items-start justify-between gap-2 px-4 py-2 text-xs font-mono text-neutral-300 ${indent ? "pl-10" : ""}`;
+  row.className = `px-4 py-2 text-xs font-mono text-neutral-300 ${indent ? "pl-10" : ""}`;
 
   const text = document.createElement("span");
   text.innerHTML = `<span class="muted">${comment.author}</span> `;
@@ -123,16 +149,8 @@ function renderCommentRow(comment, { indent = false, actions = [], onDelete } = 
   text.appendChild(bodySpan);
   row.appendChild(text);
 
-  const allActions = comment.editable
-    ? [
-        ...actions,
-        { label: "Edit", onClick: () => startEditingComment(text, bodySpan, comment) },
-        { label: "Delete", onClick: () => requestCommentDelete(comment).then((deleted) => deleted && onDelete(comment.id)) }
-      ]
-    : actions;
-
-  if (allActions.length > 0) row.appendChild(buildActionsMenu(allActions));
-
+  row._text = text;
+  row._bodySpan = bodySpan;
   return row;
 }
 
@@ -148,8 +166,9 @@ function buildThreadAnnotations(comments) {
 
 // Renders a comment thread (top-level comment + replies) for one annotation.
 // `addComment`/`removeComment` mutate the file's live comment list and
-// trigger a fresh annotation render (see renderFileDiffs).
-function makeRenderCommentAnnotation(pr, filePath, addComment, removeComment) {
+// trigger a fresh annotation render (see renderFileDiffs). `registerThread`
+// records this thread's live refs so the line's gutter popup can act on it.
+function makeRenderCommentAnnotation(pr, filePath, addComment, removeComment, registerThread) {
   return (annotation) => {
     const { comment, replies } = annotation.metadata;
     const container = document.createElement("div");
@@ -166,11 +185,22 @@ function makeRenderCommentAnnotation(pr, filePath, addComment, removeComment) {
       container.appendChild(replyComposer);
     };
 
-    container.appendChild(renderCommentRow(comment, {
-      actions: [ { label: "Reply", onClick: showReplyComposer } ],
+    const topRow = renderCommentRow(comment);
+    container.appendChild(topRow);
+
+    const replyRows = replies.map((reply) => {
+      const row = renderCommentRow(reply, { indent: true });
+      container.appendChild(row);
+      return { comment: reply, row };
+    });
+
+    registerThread(annotation.lineNumber, {
+      topComment: comment,
+      topRow,
+      replies: replyRows,
+      showReplyComposer,
       onDelete: removeComment
-    }));
-    replies.forEach((reply) => container.appendChild(renderCommentRow(reply, { indent: true, onDelete: removeComment })));
+    });
 
     return container;
   };
@@ -267,6 +297,12 @@ function renderFileDiffs(filesWrapper, files, commentOwnerPr) {
     let comments = commentsForFile.get(fileDiff.name) || [];
     let openComposer = null;
     let diff;
+    const threadsByLine = new Map();
+    const gutterButton = buildGutterButton();
+
+    const registerThread = (lineNumber, thread) => {
+      threadsByLine.set(lineNumber, thread);
+    };
 
     const addComment = (comment) => {
       // FileDiff.render only detects annotation changes by array identity,
@@ -282,18 +318,63 @@ function renderFileDiffs(filesWrapper, files, commentOwnerPr) {
       diff.render({ fileDiff, fileContainer, lineAnnotations: buildThreadAnnotations(comments) });
     };
 
+    const openNewCommentComposer = (lineNumber) => {
+      if (openComposer) openComposer.remove();
+      openComposer = buildCommentForm(commentOwnerPr, fileDiff.name, lineNumber, null, (comment) => {
+        openComposer.remove();
+        openComposer = null;
+        addComment(comment);
+      });
+      fileContainer.after(openComposer);
+    };
+
+    // @pierre/diffs only allows one gutter-utility API at a time: either its
+    // built-in (icon) button via onGutterUtilityClick, or a fully custom
+    // element via renderGutterUtility -- which must handle its own click.
+    // getHoveredRow is re-supplied on every render, so stash the latest one
+    // and read it at click time to know which line/side was acted on.
+    let getHoveredRow = () => undefined;
+    gutterButton.addEventListener("click", () => {
+      const hovered = getHoveredRow();
+      if (!hovered) return;
+      // Comments have no left/right "side" of their own -- they're always
+      // attributed to a line number -- so look the thread up by line number
+      // alone, regardless of which number column (old/new) was hovered.
+      const { lineNumber } = hovered;
+      const thread = threadsByLine.get(lineNumber);
+
+      if (!thread) {
+        openGutterPopup(gutterButton, [
+          { label: "Add comment", onClick: () => openNewCommentComposer(lineNumber) }
+        ]);
+        return;
+      }
+
+      const items = [ { label: "Reply", onClick: thread.showReplyComposer } ];
+
+      if (thread.topComment.editable) {
+        items.push({ label: "Edit comment", onClick: () => startEditingComment(thread.topRow._text, thread.topRow._bodySpan, thread.topComment) });
+        items.push({ label: "Delete comment", onClick: () => requestCommentDelete(thread.topComment).then((deleted) => deleted && thread.onDelete(thread.topComment.id)) });
+      }
+
+      thread.replies.forEach(({ comment: reply, row }, index) => {
+        if (!reply.editable) return;
+        const suffix = thread.replies.length > 1 ? ` ${index + 1}` : "";
+        items.push({ label: `Edit reply${suffix}`, onClick: () => startEditingComment(row._text, row._bodySpan, reply) });
+        items.push({ label: `Delete reply${suffix}`, onClick: () => requestCommentDelete(reply).then((deleted) => deleted && thread.onDelete(reply.id)) });
+      });
+
+      openGutterPopup(gutterButton, items);
+    });
+
     diff = new FileDiff({
       themeType: "dark",
-      renderAnnotation: makeRenderCommentAnnotation(commentOwnerPr, fileDiff.name, addComment, removeComment),
+      renderAnnotation: makeRenderCommentAnnotation(commentOwnerPr, fileDiff.name, addComment, removeComment, registerThread),
       lineHoverHighlight: "number",
-      onLineNumberClick: ({ lineNumber }) => {
-        if (openComposer) openComposer.remove();
-        openComposer = buildCommentForm(commentOwnerPr, fileDiff.name, lineNumber, null, (comment) => {
-          openComposer.remove();
-          openComposer = null;
-          addComment(comment);
-        });
-        fileContainer.after(openComposer);
+      enableGutterUtility: true,
+      renderGutterUtility: (nextGetHoveredRow) => {
+        getHoveredRow = nextGetHoveredRow;
+        return gutterButton;
       }
     });
     diff.render({ fileDiff, fileContainer, lineAnnotations: buildThreadAnnotations(comments) });
