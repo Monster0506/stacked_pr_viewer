@@ -66,6 +66,32 @@ function commentsByFile(comments) {
   return byFile;
 }
 
+// Renders each file's diff into filesWrapper with comment annotations and a
+// click-to-comment composer. New comments are attributed to `commentOwnerPr`
+// (the top PR for the cumulative view, since that's where its head lands).
+function renderFileDiffs(filesWrapper, files, commentOwnerPr) {
+  const commentsForFile = commentsByFile(commentOwnerPr.comments || []);
+
+  files.forEach((fileDiff) => {
+    const fileContainer = document.createElement("div");
+    filesWrapper.appendChild(fileContainer);
+
+    let openComposer = null;
+    const diff = new FileDiff({
+      themeType: "dark",
+      renderAnnotation: renderCommentAnnotation,
+      lineHoverHighlight: "number",
+      onLineNumberClick: ({ lineNumber }) => {
+        if (openComposer) openComposer.remove();
+        openComposer = buildCommentForm(commentOwnerPr, fileDiff.name, lineNumber);
+        fileContainer.after(openComposer);
+      }
+    });
+    diff.render({ fileDiff, fileContainer, lineAnnotations: commentsForFile.get(fileDiff.name) || [] });
+    ensureCoreCSS(fileContainer);
+  });
+}
+
 async function renderStack() {
   const container = document.getElementById("stack-diff-root");
   if (!container) return;
@@ -115,14 +141,7 @@ async function renderStack() {
     filesWrapper.className = "divide-y divide-neutral-800";
     cumulativeSection.appendChild(filesWrapper);
 
-    parsedCumulative.files.forEach((fileDiff) => {
-      const fileContainer = document.createElement("div");
-      filesWrapper.appendChild(fileContainer);
-
-      const diff = new FileDiff({ themeType: "dark" });
-      diff.render({ fileDiff, fileContainer });
-      ensureCoreCSS(fileContainer);
-    });
+    renderFileDiffs(filesWrapper, parsedCumulative.files, pull_requests[pull_requests.length - 1]);
 
     container.appendChild(cumulativeSection);
   }
@@ -150,26 +169,7 @@ async function renderStack() {
     filesWrapper.className = "divide-y divide-neutral-800";
     prContainer.appendChild(filesWrapper);
 
-    const commentsForFile = commentsByFile(pr.comments || []);
-
-    parsed.files.forEach((fileDiff) => {
-      const fileContainer = document.createElement("div");
-      filesWrapper.appendChild(fileContainer);
-
-      let openComposer = null;
-      const diff = new FileDiff({
-        themeType: "dark",
-        renderAnnotation: renderCommentAnnotation,
-        lineHoverHighlight: "number",
-        onLineNumberClick: ({ lineNumber }) => {
-          if (openComposer) openComposer.remove();
-          openComposer = buildCommentForm(pr, fileDiff.name, lineNumber);
-          fileContainer.after(openComposer);
-        }
-      });
-      diff.render({ fileDiff, fileContainer, lineAnnotations: commentsForFile.get(fileDiff.name) || [] });
-      ensureCoreCSS(fileContainer);
-    });
+    renderFileDiffs(filesWrapper, parsed.files, pr);
   });
 }
 

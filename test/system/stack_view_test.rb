@@ -113,6 +113,42 @@ class StackViewTest < ApplicationSystemTestCase
     assert_text "second change"
   end
 
+  test "commenting on the cumulative diff attributes the comment to the top PR" do
+    user = User.create!(email_address: "u@example.com", password: "password123")
+    repo = RepoConfig.create!(owner: "acme", name: "widgets", access_token: "ghp_x")
+    pr1 = PullRequest.create!(repo_config: repo, number: 1, title: "First", author: "octocat", base_branch: "main", head_branch: "stack-1", base_sha: "main_sha", head_sha: "stack1_sha", state: "open")
+    pr2 = PullRequest.create!(repo_config: repo, number: 2, title: "Second", author: "octocat", base_branch: "stack-1", head_branch: "stack-2", base_sha: "stack1_sha", head_sha: "stack2_sha", state: "open")
+    stack = repo.stacks.create!
+    stack.stack_memberships.create!(pull_request: pr1, position: 0)
+    stack.stack_memberships.create!(pull_request: pr2, position: 1)
+
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/compare/main_sha...stack1_sha")
+      .to_return(status: 200, body: "diff --git a/one.rb b/one.rb\nindex 0000000..1111111 100644\n--- a/one.rb\n+++ b/one.rb\n@@ -1 +1,2 @@\n line one\n+first change\n")
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/compare/stack1_sha...stack2_sha")
+      .to_return(status: 200, body: "diff --git a/two.rb b/two.rb\nindex 0000000..2222222 100644\n--- a/two.rb\n+++ b/two.rb\n@@ -1 +1,2 @@\n line one\n+second change\n")
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/compare/main_sha...stack2_sha")
+      .to_return(status: 200, body: "diff --git a/one.rb b/one.rb\nindex 0000000..1111111 100644\n--- a/one.rb\n+++ b/one.rb\n@@ -1 +1,2 @@\n line one\n+first change\ndiff --git a/two.rb b/two.rb\nindex 0000000..2222222 100644\n--- a/two.rb\n+++ b/two.rb\n@@ -1 +1,2 @@\n line one\n+second change\n")
+
+    visit new_session_path
+    fill_in "Email address", with: user.email_address
+    fill_in "Password", with: "password123"
+    click_button "Sign in"
+    assert_current_path root_path
+
+    visit stack_path(stack)
+    assert_text "Cumulative diff (2 PRs)"
+
+    click_diff_line_number
+    assert_selector "form[action='/comments']"
+
+    fill_in "comment[body]", with: "comment from the cumulative view"
+    click_button "Comment"
+
+    assert_current_path stack_path(stack)
+    assert_text "comment from the cumulative view"
+    assert_equal pr2, Comment.sole.pull_request
+  end
+
   private
 
   def click_diff_line_number
