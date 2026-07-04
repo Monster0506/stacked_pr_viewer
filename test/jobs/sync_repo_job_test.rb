@@ -1,6 +1,9 @@
 require "test_helper"
+require "active_job/continuation/test_helper"
 
 class SyncRepoJobTest < ActiveJob::TestCase
+  include ActiveJob::Continuation::TestHelper
+
   setup do
     @repo = RepoConfig.create!(owner: "acme", name: "widgets", access_token: "ghp_x")
   end
@@ -74,5 +77,30 @@ class SyncRepoJobTest < ActiveJob::TestCase
     @repo.reload
     assert @repo.last_sync_failed_at.present?
     assert_includes @repo.last_sync_error, "Bad credentials"
+  end
+
+  test "resumes the per-PR sync from where it left off after an interruption" do
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/pulls?state=open")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: [
+          { number: 1, title: "A", user: { login: "octocat" }, base: { ref: "main", sha: "a1" }, head: { ref: "feat-a", sha: "b1" }, state: "open" },
+          { number: 2, title: "B", user: { login: "octocat" }, base: { ref: "main", sha: "a2" }, head: { ref: "feat-b", sha: "b2" }, state: "open" }
+        ].to_json
+      )
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/pulls/1")
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" }, body: { number: 1, mergeable_state: "clean" }.to_json)
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/pulls/2")
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" }, body: { number: 2, mergeable_state: "clean" }.to_json)
+
+    SyncRepoJob.perform_later(@repo)
+    interrupt_job_during_step(SyncRepoJob, :sync_pull_requests, cursor: 1) { perform_enqueued_jobs }
+
+    assert_equal [ 1 ], PullRequest.pluck(:number)
+
+    perform_enqueued_jobs
+
+    assert_equal [ 1, 2 ], PullRequest.order(:number).pluck(:number)
   end
 end
