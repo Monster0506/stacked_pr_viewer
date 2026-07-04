@@ -18,6 +18,26 @@ function renderCommentAnnotation(annotation) {
   return el;
 }
 
+function buildCommentForm(pr, filePath) {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
+
+  const form = document.createElement("form");
+  form.method = "post";
+  form.action = "/comments";
+  form.className = "px-4 py-2 border-t border-neutral-800 flex items-center gap-2 text-xs font-mono";
+  form.innerHTML = `
+    <input type="hidden" name="authenticity_token" value="${csrfToken}">
+    <input type="hidden" name="comment[pull_request_id]" value="${pr.id}">
+    <input type="hidden" name="comment[file_path]" value="${filePath}">
+    <input type="number" name="comment[line_number]" placeholder="line" required
+      class="w-16 bg-neutral-900 border border-neutral-800 px-1 py-0.5 text-neutral-300">
+    <input type="text" name="comment[body]" placeholder="Add a comment" required
+      class="flex-1 bg-neutral-900 border border-neutral-800 px-1 py-0.5 text-neutral-300">
+    <button type="submit" class="text-sky-400 hover:text-sky-300 border border-neutral-800 px-2 py-0.5">Comment</button>
+  `;
+  return form;
+}
+
 function commentsByFile(comments) {
   const byFile = new Map();
   comments.forEach((comment) => {
@@ -88,6 +108,8 @@ async function renderStack() {
       const diff = new FileDiff({ themeType: "dark", renderAnnotation: renderCommentAnnotation });
       diff.render({ fileDiff, fileContainer, lineAnnotations: commentsForFile.get(fileDiff.name) || [] });
       ensureCoreCSS(fileContainer);
+
+      filesWrapper.appendChild(buildCommentForm(pr, fileDiff.name));
     });
   });
 }

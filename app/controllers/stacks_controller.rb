@@ -19,6 +19,7 @@ class StacksController < ApplicationController
     review_state = ReviewState.find_by(user: Current.user, pull_request: pr)
 
     {
+      id: pr.id,
       number: pr.number,
       title: pr.title,
       author: pr.author,

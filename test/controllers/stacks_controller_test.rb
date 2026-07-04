@@ -21,6 +21,7 @@ class StacksControllerTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     pr_json = body["pull_requests"].first
 
+    assert_equal @pr.id, pr_json["id"]
     assert_equal 1, pr_json["number"]
     assert_equal "Add feature", pr_json["title"]
     assert_equal "octocat", pr_json["author"]
