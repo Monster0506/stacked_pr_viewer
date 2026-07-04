@@ -28,6 +28,14 @@ class CommentsController < ApplicationController
     end
   end
 
+  def destroy
+    comment = Comment.find(params[:id])
+    return head :forbidden unless comment.user == Current.user
+
+    comment.destroy
+    head :no_content
+  end
+
   private
 
   def comment_params

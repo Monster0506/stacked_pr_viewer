@@ -4,7 +4,7 @@ Rails.application.routes.draw do
   resources :repo_configs, only: [:index, :new, :create]
   resources :stacks, only: [:show]
   resources :stack_memberships, only: [:update]
-  resources :comments, only: [:create, :update]
+  resources :comments, only: [:create, :update, :destroy]
   resources :review_states, only: [:create]
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

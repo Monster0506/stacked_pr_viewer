@@ -92,4 +92,27 @@ class CommentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert_equal "original", comment.reload.body
   end
+
+  test "the owner can delete their comment, along with its replies" do
+    comment = Comment.create!(user: @user, pull_request: @pr, file_path: "file.rb", line_number: 3, body: "top level")
+    reply = Comment.create!(user: @user, pull_request: @pr, file_path: "file.rb", line_number: 3, body: "a reply", parent: comment)
+
+    assert_difference -> { Comment.count }, -2 do
+      delete comment_url(comment), as: :json
+    end
+
+    assert_response :no_content
+    assert_not Comment.exists?(reply.id)
+  end
+
+  test "a user cannot delete another user's comment" do
+    other_user = User.create!(email_address: "other@example.com", password: "password123")
+    comment = Comment.create!(user: other_user, pull_request: @pr, file_path: "file.rb", line_number: 3, body: "original")
+
+    assert_no_difference -> { Comment.count } do
+      delete comment_url(comment), as: :json
+    end
+
+    assert_response :forbidden
+  end
 end

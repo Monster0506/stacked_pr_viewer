@@ -91,7 +91,26 @@ function startEditingComment(text, bodySpan, comment) {
   bodySpan.replaceWith(editor);
 }
 
-function renderCommentRow(comment, { indent = false, actions = [] } = {}) {
+// Deletes a comment on the server after confirmation; resolves to whether
+// it was actually deleted, so callers only update local state on success.
+async function requestCommentDelete(comment) {
+  if (!window.confirm("Delete this comment?")) return false;
+
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
+  const response = await fetch(`/comments/${comment.id}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json", "X-CSRF-Token": csrfToken }
+  });
+
+  if (!response.ok) {
+    window.alert("Couldn't delete comment");
+    return false;
+  }
+
+  return true;
+}
+
+function renderCommentRow(comment, { indent = false, actions = [], onDelete } = {}) {
   const row = document.createElement("div");
   row.dataset.commentId = comment.id;
   row.className = `flex items-start justify-between gap-2 px-4 py-2 text-xs font-mono text-neutral-300 ${indent ? "pl-10" : ""}`;
@@ -105,7 +124,11 @@ function renderCommentRow(comment, { indent = false, actions = [] } = {}) {
   row.appendChild(text);
 
   const allActions = comment.editable
-    ? [ ...actions, { label: "Edit", onClick: () => startEditingComment(text, bodySpan, comment) } ]
+    ? [
+        ...actions,
+        { label: "Edit", onClick: () => startEditingComment(text, bodySpan, comment) },
+        { label: "Delete", onClick: () => requestCommentDelete(comment).then((deleted) => deleted && onDelete(comment.id)) }
+      ]
     : actions;
 
   if (allActions.length > 0) row.appendChild(buildActionsMenu(allActions));
@@ -124,9 +147,9 @@ function buildThreadAnnotations(comments) {
 }
 
 // Renders a comment thread (top-level comment + replies) for one annotation.
-// `addComment` appends a new reply into the file's live comment list and
-// triggers a fresh annotation render (see renderFileDiffs).
-function makeRenderCommentAnnotation(pr, filePath, addComment) {
+// `addComment`/`removeComment` mutate the file's live comment list and
+// trigger a fresh annotation render (see renderFileDiffs).
+function makeRenderCommentAnnotation(pr, filePath, addComment, removeComment) {
   return (annotation) => {
     const { comment, replies } = annotation.metadata;
     const container = document.createElement("div");
@@ -143,8 +166,11 @@ function makeRenderCommentAnnotation(pr, filePath, addComment) {
       container.appendChild(replyComposer);
     };
 
-    container.appendChild(renderCommentRow(comment, { actions: [ { label: "Reply", onClick: showReplyComposer } ] }));
-    replies.forEach((reply) => container.appendChild(renderCommentRow(reply, { indent: true })));
+    container.appendChild(renderCommentRow(comment, {
+      actions: [ { label: "Reply", onClick: showReplyComposer } ],
+      onDelete: removeComment
+    }));
+    replies.forEach((reply) => container.appendChild(renderCommentRow(reply, { indent: true, onDelete: removeComment })));
 
     return container;
   };
@@ -249,9 +275,16 @@ function renderFileDiffs(filesWrapper, files, commentOwnerPr) {
       diff.render({ fileDiff, fileContainer, lineAnnotations: buildThreadAnnotations(comments) });
     };
 
+    const removeComment = (commentId) => {
+      // Deleting a top-level comment cascades to its replies server-side,
+      // so drop both here too.
+      comments = comments.filter((c) => c.id !== commentId && c.parent_id !== commentId);
+      diff.render({ fileDiff, fileContainer, lineAnnotations: buildThreadAnnotations(comments) });
+    };
+
     diff = new FileDiff({
       themeType: "dark",
-      renderAnnotation: makeRenderCommentAnnotation(commentOwnerPr, fileDiff.name, addComment),
+      renderAnnotation: makeRenderCommentAnnotation(commentOwnerPr, fileDiff.name, addComment, removeComment),
       lineHoverHighlight: "number",
       onLineNumberClick: ({ lineNumber }) => {
         if (openComposer) openComposer.remove();
