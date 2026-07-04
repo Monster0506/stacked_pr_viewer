@@ -6,17 +6,18 @@ import { FileDiff, processPatch, preloadHighlighter, getFiletypeFromFileName, DE
 // below) needs its own rules injected here, or it falls back to the
 // browser's default button chrome.
 const THREAD_ACTIONS_BUTTON_CSS = `
+  [data-gutter-buffer="annotation"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
   [data-role="thread-actions-button"] {
     all: unset;
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
-    text-align: center;
     cursor: pointer;
     font-family: ui-monospace, monospace;
     font-size: 0.75rem;
     line-height: 1;
-    padding: 0.125rem 0;
     color: #737373;
   }
   [data-role="thread-actions-button"]:hover {
