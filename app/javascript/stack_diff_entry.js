@@ -13,8 +13,8 @@ function ensureCoreCSS(fileContainer) {
 function renderCommentAnnotation(annotation) {
   const comment = annotation.metadata;
   const el = document.createElement("div");
-  el.className = "px-4 py-2 text-xs font-mono border-t border-b border-neutral-800 bg-neutral-900 text-neutral-300";
-  el.innerHTML = `<span class="text-sky-400">${comment.author}</span> ${comment.body}`;
+  el.className = "px-4 py-2 text-xs font-mono border-t border-neutral-800 text-neutral-300";
+  el.innerHTML = `<span class="muted">${comment.author}</span> ${comment.body}`;
   return el;
 }
 
@@ -28,7 +28,7 @@ function buildMarkReviewedForm(pr) {
   form.innerHTML = `
     <input type="hidden" name="authenticity_token" value="${csrfToken}">
     <input type="hidden" name="review_state[pull_request_id]" value="${pr.id}">
-    <button type="submit" class="text-xs font-mono text-neutral-500 hover:text-neutral-200 border border-neutral-800 px-1.5 py-0.5">Mark reviewed</button>
+    <button type="submit" class="text-xs font-mono text-neutral-500 hover:text-neutral-200 bg-transparent border-0 cursor-pointer">Mark reviewed</button>
   `;
   return form;
 }
@@ -39,16 +39,16 @@ function buildCommentForm(pr, filePath) {
   const form = document.createElement("form");
   form.method = "post";
   form.action = "/comments";
-  form.className = "px-4 py-2 border-t border-neutral-800 flex items-center gap-2 text-xs font-mono";
+  form.className = "px-4 py-2 border-t border-neutral-800 flex items-center gap-2";
   form.innerHTML = `
     <input type="hidden" name="authenticity_token" value="${csrfToken}">
     <input type="hidden" name="comment[pull_request_id]" value="${pr.id}">
     <input type="hidden" name="comment[file_path]" value="${filePath}">
     <input type="number" name="comment[line_number]" placeholder="line" required
-      class="w-16 bg-neutral-900 border border-neutral-800 px-1 py-0.5 text-neutral-300">
+      class="field-input w-16 mt-0">
     <input type="text" name="comment[body]" placeholder="Add a comment" required
-      class="flex-1 bg-neutral-900 border border-neutral-800 px-1 py-0.5 text-neutral-300">
-    <button type="submit" class="text-sky-400 hover:text-sky-300 border border-neutral-800 px-2 py-0.5">Comment</button>
+      class="field-input flex-1 mt-0">
+    <button type="submit" class="btn-ghost">Comment</button>
   `;
   return form;
 }
