@@ -29,5 +29,6 @@ class StacksControllerTest < ActionDispatch::IntegrationTest
     assert_equal true, pr_json["stale_for_current_user"]
     assert_equal true, pr_json["conflicted"]
     assert_equal [], pr_json["comments"]
+    assert_includes body["cumulative_diff"], "added line"
   end
 end

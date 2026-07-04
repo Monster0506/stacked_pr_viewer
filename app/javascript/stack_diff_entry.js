@@ -79,21 +79,50 @@ async function renderStack() {
   const response = await fetch(`/stacks/${stackId}.json`, {
     headers: { Accept: "application/json" }
   });
-  const { pull_requests } = await response.json();
+  const { pull_requests, cumulative_diff } = await response.json();
   if (container._renderToken !== renderToken) return;
 
   const parsedByPr = pull_requests.map((pr) => ({ pr, parsed: processPatch(pr.diff) }));
+  const parsedCumulative = cumulative_diff ? processPatch(cumulative_diff) : null;
 
   const langs = new Set();
   parsedByPr.forEach(({ parsed }) => {
     parsed.files.forEach((fileDiff) => langs.add(getFiletypeFromFileName(fileDiff.name)));
   });
+  if (parsedCumulative) {
+    parsedCumulative.files.forEach((fileDiff) => langs.add(getFiletypeFromFileName(fileDiff.name)));
+  }
 
   await preloadHighlighter({
     themes: [DEFAULT_THEMES.dark, DEFAULT_THEMES.light],
     langs: Array.from(langs)
   });
   if (container._renderToken !== renderToken) return;
+
+  if (parsedCumulative && pull_requests.length > 1) {
+    const cumulativeSection = document.createElement("div");
+    cumulativeSection.className = "border border-neutral-800 mb-6";
+
+    const header = document.createElement("div");
+    header.className = "px-4 py-3 border-b border-neutral-800 font-mono text-sm text-neutral-300";
+    header.textContent = `Cumulative diff (${pull_requests.length} PRs)`;
+    cumulativeSection.appendChild(header);
+
+    const filesWrapper = document.createElement("div");
+    filesWrapper.className = "divide-y divide-neutral-800";
+    cumulativeSection.appendChild(filesWrapper);
+
+    parsedCumulative.files.forEach((fileDiff) => {
+      const fileContainer = document.createElement("div");
+      filesWrapper.appendChild(fileContainer);
+
+      const diff = new FileDiff({ themeType: "dark" });
+      diff.render({ fileDiff, fileContainer });
+      ensureCoreCSS(fileContainer);
+    });
+
+    container.appendChild(cumulativeSection);
+  }
 
   parsedByPr.forEach(({ pr, parsed }) => {
     const prContainer = document.createElement("div");

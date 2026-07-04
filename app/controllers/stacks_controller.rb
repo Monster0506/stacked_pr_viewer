@@ -4,15 +4,20 @@ class StacksController < ApplicationController
 
     respond_to do |format|
       format.html
-      format.json { render json: { pull_requests: stack_pull_requests_json(@stack) } }
+      format.json do
+        pull_requests = ordered_pull_requests(@stack)
+        render json: {
+          pull_requests: pull_requests.map { |pr| pull_request_json(pr) },
+          cumulative_diff: DiffFetcher.cumulative(pull_requests)
+        }
+      end
     end
   end
 
   private
 
-  def stack_pull_requests_json(stack)
-    pull_requests = stack.stack_memberships.order(:position).includes(pull_request: :comments).map(&:pull_request)
-    pull_requests.map { |pr| pull_request_json(pr) }
+  def ordered_pull_requests(stack)
+    stack.stack_memberships.order(:position).includes(pull_request: :comments).map(&:pull_request)
   end
 
   def pull_request_json(pr)

@@ -8,4 +8,18 @@ class DiffFetcher
       accept: "application/vnd.github.v3.diff"
     )
   end
+
+  def self.cumulative(pull_requests)
+    return nil if pull_requests.empty?
+
+    first_pr = pull_requests.first
+    last_pr = pull_requests.last
+    client = GithubClient.for(first_pr.repo_config)
+    client.compare(
+      first_pr.repo_config.full_name,
+      first_pr.base_sha,
+      last_pr.head_sha,
+      accept: "application/vnd.github.v3.diff"
+    )
+  end
 end
