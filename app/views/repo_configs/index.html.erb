@@ -1,7 +1,7 @@
 <h1>Tracked repos</h1>
-<ul>
-  <% @repo_configs.each do |repo| %>
-    <li><%= repo.full_name %></li>
-  <% end %>
-</ul>
+<% @repo_configs.each do |repo| %>
+  <h2><%= repo.full_name %></h2>
+  <%= turbo_stream_from repo %>
+  <%= render "stacks", repo_config: repo %>
+<% end %>
 <%= link_to "Add a repo", new_repo_config_path %>

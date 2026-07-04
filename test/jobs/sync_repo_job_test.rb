@@ -42,4 +42,19 @@ class SyncRepoJobTest < ActiveJob::TestCase
 
     assert_equal "new title", PullRequest.last.title
   end
+
+  test "runs stack detection after syncing PRs" do
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/pulls?state=open")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: [
+          { number: 1, title: "A", user: { login: "octocat" }, base: { ref: "main", sha: "a1" }, head: { ref: "feat-a", sha: "b1" }, state: "open" }
+        ].to_json
+      )
+
+    SyncRepoJob.perform_now(@repo)
+
+    assert_equal 1, Stack.count
+  end
 end

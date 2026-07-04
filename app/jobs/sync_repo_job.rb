@@ -14,5 +14,14 @@ class SyncRepoJob < ApplicationJob
         state: pr_data[:state]
       )
     end
+
+    StackDetector.call(repo_config)
+
+    Turbo::StreamsChannel.broadcast_replace_to(
+      repo_config,
+      target: "stacks_for_repo_#{repo_config.id}",
+      partial: "repo_configs/stacks",
+      locals: { repo_config: repo_config.reload }
+    )
   end
 end
