@@ -1,8 +1,10 @@
 <div id="stacks_for_repo_<%= repo_config.id %>">
   <% repo_config.stacks.includes(:pull_requests).each do |stack| %>
     <div class="stack">
-      <% stack.pull_requests.each do |pr| %>
-        <div>#<%= pr.number %> <%= pr.title %> (<%= pr.author %>)</div>
+      <%= link_to stack_path(stack) do %>
+        <% stack.pull_requests.each do |pr| %>
+          <div>#<%= pr.number %> <%= pr.title %> (<%= pr.author %>)</div>
+        <% end %>
       <% end %>
     </div>
   <% end %>
