@@ -47,8 +47,7 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_selector "#stack-diff-root", visible: :all
 
-    open_gutter_popup_for_line(1)
-    click_button "Add comment"
+    click_diff_line_number
     assert_selector "form[data-role='comment-form']"
     page.execute_script("window.__noReloadMarker = true")
 
@@ -81,7 +80,7 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_text "looks good"
 
-    open_gutter_popup_for_line(1)
+    open_thread_actions_popup(top_level)
     click_button "Reply"
 
     fill_in "Write a reply", with: "thanks!"
@@ -113,7 +112,7 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_text "origianl typo"
 
-    open_gutter_popup_for_line(1)
+    open_thread_actions_popup(comment)
     click_button "Edit comment"
     find("input[type='text']").set("original, fixed")
     click_button "Save"
@@ -144,7 +143,7 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_text "someone else's comment"
 
-    open_gutter_popup_for_line(1)
+    open_thread_actions_popup(comment)
     assert_no_button "Edit comment"
     assert_button "Reply"
   end
@@ -172,7 +171,7 @@ class StackViewTest < ApplicationSystemTestCase
     assert_text "a reply to delete"
 
     accept_confirm do
-      open_gutter_popup_for_line(1)
+      open_thread_actions_popup(comment)
       click_button "Delete comment"
     end
 
@@ -261,8 +260,7 @@ class StackViewTest < ApplicationSystemTestCase
     visit stack_path(stack)
     assert_text "Cumulative diff (2 PRs)"
 
-    open_gutter_popup_for_line(1)
-    click_button "Add comment"
+    click_diff_line_number
     assert_selector "form[data-role='comment-form']"
 
     fill_in "Add a comment", with: "comment from the cumulative view"
@@ -275,34 +273,40 @@ class StackViewTest < ApplicationSystemTestCase
 
   private
 
-  # Hovers the given line's number column (to trigger @pierre/diffs' gutter
-  # utility placement) then clicks the "..." button it reveals there, waiting
-  # for both the diff to be ready and the popup to render.
-  def open_gutter_popup_for_line(line_number)
+  def click_diff_line_number
     Timeout.timeout(Capybara.default_max_wait_time) do
       loop do
-        opened = page.evaluate_script(<<~JS)
+        clicked = page.evaluate_script(<<~JS)
           (() => {
-            const containers = Array.from(document.querySelectorAll("*")).filter((el) => el.shadowRoot);
-            for (const fileContainer of containers) {
-              const numberEl = fileContainer.shadowRoot.querySelector('[data-column-number="#{line_number}"]');
-              const button = fileContainer.querySelector("[data-role='gutter-utility-button']");
-              if (numberEl && button) {
-                const rect = numberEl.getBoundingClientRect();
-                numberEl.dispatchEvent(new PointerEvent("pointermove", {
-                  bubbles: true, composed: true, pointerType: "mouse", clientX: rect.x + 2, clientY: rect.y + 2
-                }));
-                button.click();
-                return true;
-              }
-            }
+            const numberEl = Array.from(document.querySelectorAll("*"))
+              .filter((el) => el.shadowRoot)
+              .flatMap((el) => Array.from(el.shadowRoot.querySelectorAll("[data-column-number]")))[0];
+            if (numberEl) { numberEl.click(); return true; }
             return false;
           })()
         JS
-        break if opened
+        break if clicked
         sleep 0.1
       end
     end
-    find("[data-role='gutter-popup']", visible: :all)
+  end
+
+  # Clicks the "..." button that @pierre/diffs' own blank gutter cell hosts
+  # for this comment thread (see wireThreadActionButtons), opening its
+  # actions popup. The button lives in the diff's shadow DOM, not in the
+  # light-DOM comment row, so it's found and clicked via JS.
+  def open_thread_actions_popup(comment)
+    clicked = page.evaluate_script(<<~JS)
+      (() => {
+        const containers = Array.from(document.querySelectorAll("*")).filter((el) => el.shadowRoot);
+        for (const fileContainer of containers) {
+          const button = fileContainer.shadowRoot.querySelector("[data-role='thread-actions-button'][data-comment-thread='#{comment.id}']");
+          if (button) { button.click(); return true; }
+        }
+        return false;
+      })()
+    JS
+    raise "thread actions button not found for comment #{comment.id}" unless clicked
+    find("[data-role='thread-actions-popup']", visible: :all)
   end
 end
