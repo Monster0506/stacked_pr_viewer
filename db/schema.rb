@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_04_042620) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_04_042814) do
   create_table "pull_requests", force: :cascade do |t|
     t.string "author", null: false
     t.string "base_branch", null: false
@@ -44,6 +44,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_042620) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
+  create_table "stack_memberships", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "manual_override"
+    t.integer "position"
+    t.integer "pull_request_id", null: false
+    t.integer "stack_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pull_request_id"], name: "index_stack_memberships_on_pull_request_id", unique: true
+    t.index ["stack_id"], name: "index_stack_memberships_on_stack_id"
+  end
+
+  create_table "stacks", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "repo_config_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["repo_config_id"], name: "index_stacks_on_repo_config_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email_address", null: false
@@ -54,4 +72,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_042620) do
 
   add_foreign_key "pull_requests", "repo_configs"
   add_foreign_key "sessions", "users"
+  add_foreign_key "stack_memberships", "pull_requests"
+  add_foreign_key "stack_memberships", "stacks"
+  add_foreign_key "stacks", "repo_configs"
 end
