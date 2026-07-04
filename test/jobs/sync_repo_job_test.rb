@@ -57,4 +57,15 @@ class SyncRepoJobTest < ActiveJob::TestCase
 
     assert_equal 1, Stack.count
   end
+
+  test "records a failure on the repo config instead of raising, when GitHub API call fails" do
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/pulls?state=open")
+      .to_return(status: 401, body: '{"message":"Bad credentials"}')
+
+    SyncRepoJob.perform_now(@repo)
+
+    @repo.reload
+    assert @repo.last_sync_failed_at.present?
+    assert_includes @repo.last_sync_error, "Bad credentials"
+  end
 end

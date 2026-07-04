@@ -1,6 +1,11 @@
 <h1>Tracked repos</h1>
 <% @repo_configs.each do |repo| %>
   <h2><%= repo.full_name %></h2>
+  <% if repo.last_sync_failed_at.present? %>
+    <div class="banner banner-error">
+      Last sync failed at <%= repo.last_sync_failed_at %>: <%= repo.last_sync_error %>
+    </div>
+  <% end %>
   <%= turbo_stream_from repo %>
   <%= render "stacks", repo_config: repo %>
 <% end %>

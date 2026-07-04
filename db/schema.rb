@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_04_043300) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_04_044442) do
   create_table "comments", force: :cascade do |t|
     t.text "body"
     t.datetime "created_at", null: false
@@ -42,6 +42,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_043300) do
   create_table "repo_configs", force: :cascade do |t|
     t.string "access_token"
     t.datetime "created_at", null: false
+    t.string "last_sync_error"
+    t.datetime "last_sync_failed_at"
     t.string "name"
     t.string "owner"
     t.datetime "updated_at", null: false

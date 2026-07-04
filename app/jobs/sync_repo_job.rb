@@ -16,7 +16,13 @@ class SyncRepoJob < ApplicationJob
     end
 
     StackDetector.call(repo_config)
+    repo_config.update!(last_sync_failed_at: nil, last_sync_error: nil)
 
+    Rails.event.notify("repo_sync.succeeded", repo_config_id: repo_config.id)
+  rescue Octokit::Error => e
+    repo_config.update!(last_sync_failed_at: Time.current, last_sync_error: e.message)
+    Rails.event.notify("repo_sync.failed", repo_config_id: repo_config.id, error: e.message)
+  ensure
     Turbo::StreamsChannel.broadcast_replace_to(
       repo_config,
       target: "stacks_for_repo_#{repo_config.id}",
