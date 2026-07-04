@@ -18,6 +18,21 @@ function renderCommentAnnotation(annotation) {
   return el;
 }
 
+function buildMarkReviewedForm(pr) {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
+
+  const form = document.createElement("form");
+  form.method = "post";
+  form.action = "/review_states";
+  form.className = "inline";
+  form.innerHTML = `
+    <input type="hidden" name="authenticity_token" value="${csrfToken}">
+    <input type="hidden" name="review_state[pull_request_id]" value="${pr.id}">
+    <button type="submit" class="text-xs font-mono text-neutral-500 hover:text-neutral-200 border border-neutral-800 px-1.5 py-0.5">Mark reviewed</button>
+  `;
+  return form;
+}
+
 function buildCommentForm(pr, filePath) {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
 
@@ -91,6 +106,7 @@ async function renderStack() {
     const header = document.createElement("div");
     header.className = "px-4 py-3 border-b border-neutral-800 font-mono text-sm text-neutral-300 flex items-center gap-2";
     header.innerHTML = `<span class="text-neutral-600">#${pr.number}</span> ${pr.title} <span class="text-neutral-600 text-xs">(${pr.author})</span> ${staleBadge}`;
+    if (pr.stale_for_current_user) header.appendChild(buildMarkReviewedForm(pr));
     prContainer.appendChild(header);
 
     container.appendChild(prContainer);

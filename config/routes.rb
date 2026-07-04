@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   resources :stacks, only: [:show]
   resources :stack_memberships, only: [:update]
   resources :comments, only: [:create]
+  resources :review_states, only: [:create]
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
