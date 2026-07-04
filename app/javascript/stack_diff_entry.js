@@ -10,6 +10,24 @@ function ensureCoreCSS(fileContainer) {
   shadowRoot.prepend(coreStyle);
 }
 
+function renderCommentAnnotation(annotation) {
+  const comment = annotation.metadata;
+  const el = document.createElement("div");
+  el.className = "px-4 py-2 text-xs font-mono border-t border-b border-neutral-800 bg-neutral-900 text-neutral-300";
+  el.innerHTML = `<span class="text-sky-400">${comment.author}</span> ${comment.body}`;
+  return el;
+}
+
+function commentsByFile(comments) {
+  const byFile = new Map();
+  comments.forEach((comment) => {
+    const forFile = byFile.get(comment.file_path) || [];
+    forFile.push({ side: "additions", lineNumber: comment.line_number, metadata: comment });
+    byFile.set(comment.file_path, forFile);
+  });
+  return byFile;
+}
+
 async function renderStack() {
   const container = document.getElementById("stack-diff-root");
   if (!container) return;
@@ -46,9 +64,13 @@ async function renderStack() {
     const prContainer = document.createElement("div");
     prContainer.className = "border border-neutral-800";
 
+    const staleBadge = pr.stale_for_current_user
+      ? `<span class="text-xs font-mono text-amber-400 border border-amber-900 px-1.5 py-0.5">new changes</span>`
+      : "";
+
     const header = document.createElement("div");
-    header.className = "px-4 py-3 border-b border-neutral-800 font-mono text-sm text-neutral-300";
-    header.innerHTML = `<span class="text-neutral-600">#${pr.number}</span> ${pr.title} <span class="text-neutral-600 text-xs">(${pr.author})</span>`;
+    header.className = "px-4 py-3 border-b border-neutral-800 font-mono text-sm text-neutral-300 flex items-center gap-2";
+    header.innerHTML = `<span class="text-neutral-600">#${pr.number}</span> ${pr.title} <span class="text-neutral-600 text-xs">(${pr.author})</span> ${staleBadge}`;
     prContainer.appendChild(header);
 
     container.appendChild(prContainer);
@@ -57,12 +79,14 @@ async function renderStack() {
     filesWrapper.className = "divide-y divide-neutral-800";
     prContainer.appendChild(filesWrapper);
 
+    const commentsForFile = commentsByFile(pr.comments || []);
+
     parsed.files.forEach((fileDiff) => {
       const fileContainer = document.createElement("div");
       filesWrapper.appendChild(fileContainer);
 
-      const diff = new FileDiff({ themeType: "dark" });
-      diff.render({ fileDiff, fileContainer });
+      const diff = new FileDiff({ themeType: "dark", renderAnnotation: renderCommentAnnotation });
+      diff.render({ fileDiff, fileContainer, lineAnnotations: commentsForFile.get(fileDiff.name) || [] });
       ensureCoreCSS(fileContainer);
     });
   });

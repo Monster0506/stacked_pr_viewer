@@ -11,6 +11,8 @@ class StackViewTest < ApplicationSystemTestCase
     stub_request(:get, "https://api.github.com/repos/acme/widgets/compare/aaa...bbb")
       .to_return(status: 200, body: "diff --git a/file.rb b/file.rb\nindex 0000000..1111111 100644\n--- a/file.rb\n+++ b/file.rb\n@@ -1 +1,2 @@\n line one\n+added line\n")
 
+    Comment.create!(user: user, pull_request: pr, file_path: "file.rb", line_number: 1, body: "looks good")
+
     visit new_session_path
     fill_in "Email address", with: user.email_address
     fill_in "Password", with: "password123"
@@ -22,5 +24,7 @@ class StackViewTest < ApplicationSystemTestCase
 
     assert_selector "#stack-diff-root", visible: :all
     assert_text "Add feature"
+    assert_text "new changes"
+    assert_text "looks good"
   end
 end
