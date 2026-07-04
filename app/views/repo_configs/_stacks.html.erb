@@ -1,10 +1,10 @@
-<div id="stacks_for_repo_<%= repo_config.id %>" class="space-y-2">
+<div id="stacks_for_repo_<%= repo_config.id %>" class="border-t border-neutral-800">
   <% repo_config.stacks.includes(:pull_requests).each do |stack| %>
-    <%= link_to stack_path(stack), class: "card block px-4 py-3 hover:border-neutral-600 transition-colors" do %>
+    <%= link_to stack_path(stack), class: "group block px-1 py-3 border-b border-neutral-800" do %>
       <% stack.pull_requests.each_with_index do |pr, i| %>
         <div class="flex items-center gap-2 text-sm <%= 'mt-1.5 pl-4 border-l border-neutral-800' if i > 0 %>">
           <span class="font-mono text-neutral-600">#<%= pr.number %></span>
-          <span class="text-neutral-200"><%= pr.title %></span>
+          <span class="text-neutral-200 group-hover:text-white"><%= pr.title %></span>
           <span class="muted text-xs">(<%= pr.author %>)</span>
         </div>
       <% end %>

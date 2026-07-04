@@ -14,12 +14,20 @@ async function renderStack() {
   const container = document.getElementById("stack-diff-root");
   if (!container) return;
 
+  // Guard against overlapping renders (e.g. a stray duplicate event firing
+  // before a previous render's async work has finished).
+  const renderToken = Symbol();
+  container.dataset.renderToken = "";
+  container._renderToken = renderToken;
+  container.innerHTML = "";
+
   const stackId = container.dataset.stackId;
 
   const response = await fetch(`/stacks/${stackId}.json`, {
     headers: { Accept: "application/json" }
   });
   const { pull_requests } = await response.json();
+  if (container._renderToken !== renderToken) return;
 
   const parsedByPr = pull_requests.map((pr) => ({ pr, parsed: processPatch(pr.diff) }));
 
@@ -32,10 +40,11 @@ async function renderStack() {
     themes: [DEFAULT_THEMES.dark, DEFAULT_THEMES.light],
     langs: Array.from(langs)
   });
+  if (container._renderToken !== renderToken) return;
 
   parsedByPr.forEach(({ pr, parsed }) => {
     const prContainer = document.createElement("div");
-    prContainer.className = "card overflow-hidden";
+    prContainer.className = "border border-neutral-800";
 
     const header = document.createElement("div");
     header.className = "px-4 py-3 border-b border-neutral-800 font-mono text-sm text-neutral-300";
@@ -59,4 +68,10 @@ async function renderStack() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", renderStack);
+// Turbo re-inserts this script fresh on every visit; guard on `window` so the
+// listener attaches once, and render immediately in case this navigation's turbo:load already fired before this large bundle finished loading.
+if (!window.__stackDiffListenerAttached) {
+  window.__stackDiffListenerAttached = true;
+  document.addEventListener("turbo:load", renderStack);
+  renderStack();
+}
