@@ -31,4 +31,22 @@ class CommentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
   end
+
+  test "returns the created comment as JSON when requested" do
+    post comments_url, params: { comment: { pull_request_id: @pr.id, file_path: "file.rb", line_number: 3, body: "why is this needed?" } }, as: :json
+
+    assert_response :created
+    body = JSON.parse(response.body)
+    assert_equal "file.rb", body["file_path"]
+    assert_equal 3, body["line_number"]
+    assert_equal "why is this needed?", body["body"]
+    assert_equal @user.email_address, body["author"]
+  end
+
+  test "returns JSON errors for an invalid comment when requested" do
+    post comments_url, params: { comment: { pull_request_id: @pr.id, file_path: "file.rb", line_number: 3, body: "" } }, as: :json
+
+    assert_response :unprocessable_entity
+    assert JSON.parse(response.body)["errors"].present?
+  end
 end

@@ -48,14 +48,16 @@ class StackViewTest < ApplicationSystemTestCase
     assert_selector "#stack-diff-root", visible: :all
 
     click_diff_line_number
-    assert_selector "form[action='/comments']"
+    assert_selector "form[data-role='comment-form']"
+    page.execute_script("window.__noReloadMarker = true")
 
-    fill_in "comment[body]", with: "why change this?"
+    fill_in "Add a comment", with: "why change this?"
     click_button "Comment"
 
     assert_current_path stack_path(stack)
     assert_text "why change this?"
     assert_equal 1, Comment.count
+    assert page.evaluate_script("window.__noReloadMarker"), "expected the comment to be added without a full page reload"
   end
 
   test "marking a PR reviewed clears its stale badge" do
@@ -139,9 +141,9 @@ class StackViewTest < ApplicationSystemTestCase
     assert_text "Cumulative diff (2 PRs)"
 
     click_diff_line_number
-    assert_selector "form[action='/comments']"
+    assert_selector "form[data-role='comment-form']"
 
-    fill_in "comment[body]", with: "comment from the cumulative view"
+    fill_in "Add a comment", with: "comment from the cumulative view"
     click_button "Comment"
 
     assert_current_path stack_path(stack)

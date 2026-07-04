@@ -33,26 +33,54 @@ function buildMarkReviewedForm(pr) {
   return form;
 }
 
-function buildCommentForm(pr, filePath, lineNumber) {
+// Submits via fetch instead of a native form post so adding a comment
+// updates just this file's annotations, not a full Turbo page visit.
+function buildCommentForm(pr, filePath, lineNumber, onCreated) {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
 
   const form = document.createElement("form");
-  form.method = "post";
-  form.action = "/comments";
+  form.dataset.role = "comment-form";
   form.className = "px-4 py-2 border-t border-neutral-800 flex items-center gap-2";
   form.innerHTML = `
-    <input type="hidden" name="authenticity_token" value="${csrfToken}">
-    <input type="hidden" name="comment[pull_request_id]" value="${pr.id}">
-    <input type="hidden" name="comment[file_path]" value="${filePath}">
-    <input type="hidden" name="comment[line_number]" value="${lineNumber}">
     <span class="muted text-xs font-mono">line ${lineNumber}</span>
-    <input type="text" name="comment[body]" placeholder="Add a comment" required autofocus
+    <input type="text" name="body" placeholder="Add a comment" required autofocus
       class="field-input flex-1 mt-0">
     <button type="submit" class="btn-ghost">Comment</button>
     <button type="button" data-role="cancel-comment"
       class="text-xs font-mono text-neutral-500 hover:text-neutral-200 bg-transparent border-0 cursor-pointer">Cancel</button>
+    <span data-role="comment-error" class="text-xs font-mono text-red-400"></span>
   `;
+
+  const bodyInput = form.querySelector('input[name="body"]');
+  const errorEl = form.querySelector('[data-role="comment-error"]');
   form.querySelector('[data-role="cancel-comment"]').addEventListener("click", () => form.remove());
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    errorEl.textContent = "";
+
+    const response = await fetch("/comments", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken
+      },
+      body: JSON.stringify({
+        comment: { pull_request_id: pr.id, file_path: filePath, line_number: lineNumber, body: bodyInput.value }
+      })
+    });
+
+    if (!response.ok) {
+      const { errors } = await response.json().catch(() => ({ errors: [ "Couldn't save comment" ] }));
+      errorEl.textContent = (errors || []).join(", ");
+      return;
+    }
+
+    onCreated(await response.json());
+    form.remove();
+  });
+
   return form;
 }
 
@@ -76,18 +104,25 @@ function renderFileDiffs(filesWrapper, files, commentOwnerPr) {
     const fileContainer = document.createElement("div");
     filesWrapper.appendChild(fileContainer);
 
+    let annotations = commentsForFile.get(fileDiff.name) || [];
     let openComposer = null;
-    const diff = new FileDiff({
+    let diff;
+    diff = new FileDiff({
       themeType: "dark",
       renderAnnotation: renderCommentAnnotation,
       lineHoverHighlight: "number",
       onLineNumberClick: ({ lineNumber }) => {
         if (openComposer) openComposer.remove();
-        openComposer = buildCommentForm(commentOwnerPr, fileDiff.name, lineNumber);
+        openComposer = buildCommentForm(commentOwnerPr, fileDiff.name, lineNumber, (comment) => {
+          // FileDiff.render only detects annotation changes by array identity,
+          // so a fresh array (not an in-place push) is required here.
+          annotations = [ ...annotations, { side: "additions", lineNumber: comment.line_number, metadata: comment } ];
+          diff.render({ fileDiff, fileContainer, lineAnnotations: annotations });
+        });
         fileContainer.after(openComposer);
       }
     });
-    diff.render({ fileDiff, fileContainer, lineAnnotations: commentsForFile.get(fileDiff.name) || [] });
+    diff.render({ fileDiff, fileContainer, lineAnnotations: annotations });
     ensureCoreCSS(fileContainer);
   });
 }

@@ -5,9 +5,15 @@ class CommentsController < ApplicationController
     comment.user = Current.user
 
     if comment.save
-      redirect_to stack_path(pull_request.stack_membership.stack)
+      respond_to do |format|
+        format.html { redirect_to stack_path(pull_request.stack_membership.stack) }
+        format.json { render json: comment_json(comment), status: :created }
+      end
     else
-      render plain: comment.errors.full_messages.to_sentence, status: :unprocessable_entity
+      respond_to do |format|
+        format.html { render plain: comment.errors.full_messages.to_sentence, status: :unprocessable_entity }
+        format.json { render json: { errors: comment.errors.full_messages }, status: :unprocessable_entity }
+      end
     end
   end
 
@@ -15,5 +21,9 @@ class CommentsController < ApplicationController
 
   def comment_params
     params.require(:comment).permit(:pull_request_id, :file_path, :line_number, :body)
+  end
+
+  def comment_json(comment)
+    { file_path: comment.file_path, line_number: comment.line_number, body: comment.body, author: comment.user.email_address }
   end
 end
