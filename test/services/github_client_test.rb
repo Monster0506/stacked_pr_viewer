@@ -22,6 +22,13 @@ class GithubClientTest < ActiveSupport::TestCase
         ].to_json
       )
 
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/pulls/42")
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: { number: 42, mergeable_state: "dirty" }.to_json
+      )
+
     result = GithubClient.open_pull_requests(@repo)
 
     assert_equal 1, result.length
@@ -33,7 +40,8 @@ class GithubClientTest < ActiveSupport::TestCase
       base_sha: "aaa111",
       head_branch: "feature-a",
       head_sha: "bbb222",
-      state: "open"
+      state: "open",
+      mergeable_state: "dirty"
     }, result.first)
   end
 end

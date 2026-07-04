@@ -102,10 +102,13 @@ async function renderStack() {
     const staleBadge = pr.stale_for_current_user
       ? `<span class="text-xs font-mono text-amber-400 border border-amber-900 px-1.5 py-0.5">new changes</span>`
       : "";
+    const conflictBadge = pr.conflicted
+      ? `<span class="text-xs font-mono text-red-400 border border-red-900 px-1.5 py-0.5">conflicts with base</span>`
+      : "";
 
     const header = document.createElement("div");
     header.className = "px-4 py-3 border-b border-neutral-800 font-mono text-sm text-neutral-300 flex items-center gap-2";
-    header.innerHTML = `<span class="text-neutral-600">#${pr.number}</span> ${pr.title} <span class="text-neutral-600 text-xs">(${pr.author})</span> ${staleBadge}`;
+    header.innerHTML = `<span class="text-neutral-600">#${pr.number}</span> ${pr.title} <span class="text-neutral-600 text-xs">(${pr.author})</span> ${staleBadge} ${conflictBadge}`;
     if (pr.stale_for_current_user) header.appendChild(buildMarkReviewedForm(pr));
     prContainer.appendChild(header);
 

@@ -6,7 +6,7 @@ class StacksControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user)
 
     @repo = RepoConfig.create!(owner: "acme", name: "widgets", access_token: "ghp_x")
-    @pr = PullRequest.create!(repo_config: @repo, number: 1, title: "Add feature", author: "octocat", base_branch: "main", head_branch: "feat", base_sha: "aaa", head_sha: "bbb", state: "open")
+    @pr = PullRequest.create!(repo_config: @repo, number: 1, title: "Add feature", author: "octocat", base_branch: "main", head_branch: "feat", base_sha: "aaa", head_sha: "bbb", state: "open", mergeable_state: "dirty")
     @stack = @repo.stacks.create!
     @stack.stack_memberships.create!(pull_request: @pr, position: 0)
 
@@ -27,6 +27,7 @@ class StacksControllerTest < ActionDispatch::IntegrationTest
     assert_equal "octocat", pr_json["author"]
     assert_includes pr_json["diff"], "added line"
     assert_equal true, pr_json["stale_for_current_user"]
+    assert_equal true, pr_json["conflicted"]
     assert_equal [], pr_json["comments"]
   end
 end

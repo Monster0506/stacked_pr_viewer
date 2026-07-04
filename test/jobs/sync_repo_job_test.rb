@@ -14,6 +14,8 @@ class SyncRepoJobTest < ActiveJob::TestCase
           { number: 1, title: "A", user: { login: "octocat" }, base: { ref: "main", sha: "a1" }, head: { ref: "feat-a", sha: "b1" }, state: "open" }
         ].to_json
       )
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/pulls/1")
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" }, body: { number: 1, mergeable_state: "clean" }.to_json)
 
     assert_difference("PullRequest.count", 1) do
       SyncRepoJob.perform_now(@repo)
@@ -22,6 +24,7 @@ class SyncRepoJobTest < ActiveJob::TestCase
     pr = PullRequest.last
     assert_equal 1, pr.number
     assert_equal "octocat", pr.author
+    assert_equal "clean", pr.mergeable_state
   end
 
   test "updates an existing PullRequest instead of duplicating it" do
@@ -35,6 +38,8 @@ class SyncRepoJobTest < ActiveJob::TestCase
           { number: 1, title: "new title", user: { login: "octocat" }, base: { ref: "main", sha: "a1" }, head: { ref: "feat-a", sha: "b1" }, state: "open" }
         ].to_json
       )
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/pulls/1")
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" }, body: { number: 1, mergeable_state: "clean" }.to_json)
 
     assert_no_difference("PullRequest.count") do
       SyncRepoJob.perform_now(@repo)
@@ -52,6 +57,8 @@ class SyncRepoJobTest < ActiveJob::TestCase
           { number: 1, title: "A", user: { login: "octocat" }, base: { ref: "main", sha: "a1" }, head: { ref: "feat-a", sha: "b1" }, state: "open" }
         ].to_json
       )
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/pulls/1")
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" }, body: { number: 1, mergeable_state: "clean" }.to_json)
 
     SyncRepoJob.perform_now(@repo)
 

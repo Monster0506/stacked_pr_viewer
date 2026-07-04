@@ -11,7 +11,8 @@ class SyncRepoJob < ApplicationJob
         head_branch: pr_data[:head_branch],
         base_sha: pr_data[:base_sha],
         head_sha: pr_data[:head_sha],
-        state: pr_data[:state]
+        state: pr_data[:state],
+        mergeable_state: pr_data[:mergeable_state]
       )
     end
 

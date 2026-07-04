@@ -25,6 +25,7 @@ class StacksController < ApplicationController
       author: pr.author,
       diff: DiffFetcher.call(pr),
       stale_for_current_user: review_state.nil? || review_state.stale?,
+      conflicted: pr.mergeable_state == "dirty",
       comments: pr.comments.map { |c| { file_path: c.file_path, line_number: c.line_number, body: c.body, author: c.user.email_address } }
     }
   end

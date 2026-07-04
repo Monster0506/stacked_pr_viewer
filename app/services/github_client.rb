@@ -14,7 +14,8 @@ class GithubClient
         base_sha: pr.base.sha,
         head_branch: pr.head.ref,
         head_sha: pr.head.sha,
-        state: pr.state
+        state: pr.state,
+        mergeable_state: client.pull_request(repo_config.full_name, pr.number).mergeable_state
       }
     end
   end
