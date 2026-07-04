@@ -41,6 +41,20 @@ class CommentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 3, body["line_number"]
     assert_equal "why is this needed?", body["body"]
     assert_equal @user.email_address, body["author"]
+    assert_equal Comment.last.id, body["id"]
+    assert_nil body["parent_id"]
+    assert_equal true, body["editable"]
+  end
+
+  test "creates a reply attached to a top-level comment" do
+    top_level = Comment.create!(user: @user, pull_request: @pr, file_path: "file.rb", line_number: 3, body: "top level")
+
+    assert_difference -> { Comment.count }, 1 do
+      post comments_url, params: { comment: { pull_request_id: @pr.id, file_path: "file.rb", line_number: 3, body: "a reply", parent_id: top_level.id } }, as: :json
+    end
+
+    assert_response :created
+    assert_equal top_level.id, JSON.parse(response.body)["parent_id"]
   end
 
   test "returns JSON errors for an invalid comment when requested" do

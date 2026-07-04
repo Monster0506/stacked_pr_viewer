@@ -10,15 +10,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_04_060453) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_04_155708) do
   create_table "comments", force: :cascade do |t|
     t.text "body"
     t.datetime "created_at", null: false
     t.string "file_path"
     t.integer "line_number"
+    t.integer "parent_id"
     t.integer "pull_request_id", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
+    t.index ["parent_id"], name: "index_comments_on_parent_id"
     t.index ["pull_request_id"], name: "index_comments_on_pull_request_id"
     t.index ["user_id"], name: "index_comments_on_user_id"
   end
@@ -96,6 +98,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_060453) do
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
   end
 
+  add_foreign_key "comments", "comments", column: "parent_id"
   add_foreign_key "comments", "pull_requests"
   add_foreign_key "comments", "users"
   add_foreign_key "pull_requests", "repo_configs"

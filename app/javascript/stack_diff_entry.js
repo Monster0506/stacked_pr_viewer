@@ -10,12 +10,90 @@ function ensureCoreCSS(fileContainer) {
   shadowRoot.prepend(coreStyle);
 }
 
-function renderCommentAnnotation(annotation) {
-  const comment = annotation.metadata;
-  const el = document.createElement("div");
-  el.className = "px-4 py-2 text-xs font-mono border-t border-neutral-800 text-neutral-300";
-  el.innerHTML = `<span class="muted">${comment.author}</span> ${comment.body}`;
-  return el;
+function buildActionsMenu(actions) {
+  const wrapper = document.createElement("span");
+  wrapper.className = "shrink-0";
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.textContent = "…";
+  toggle.className = "text-neutral-500 hover:text-neutral-200 bg-transparent border-0 cursor-pointer px-1";
+
+  const menu = document.createElement("span");
+  menu.className = "hidden ml-1";
+  actions.forEach(({ label, onClick }, index) => {
+    if (index > 0) menu.appendChild(document.createTextNode(" · "));
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.className = "text-sky-400 hover:text-sky-300 bg-transparent border-0 cursor-pointer";
+    button.addEventListener("click", () => {
+      menu.classList.add("hidden");
+      onClick();
+    });
+    menu.appendChild(button);
+  });
+
+  toggle.addEventListener("click", () => menu.classList.toggle("hidden"));
+
+  wrapper.appendChild(toggle);
+  wrapper.appendChild(menu);
+  return wrapper;
+}
+
+function renderCommentRow(comment, { indent = false, actions = [] } = {}) {
+  const row = document.createElement("div");
+  row.dataset.commentId = comment.id;
+  row.className = `flex items-start justify-between gap-2 px-4 py-2 text-xs font-mono text-neutral-300 ${indent ? "pl-10" : ""}`;
+
+  const text = document.createElement("span");
+  text.innerHTML = `<span class="muted">${comment.author}</span> `;
+  const bodySpan = document.createElement("span");
+  bodySpan.dataset.role = "comment-body";
+  bodySpan.textContent = comment.body;
+  text.appendChild(bodySpan);
+  row.appendChild(text);
+
+  if (actions.length > 0) row.appendChild(buildActionsMenu(actions));
+
+  return row;
+}
+
+function buildThreadAnnotations(comments) {
+  return comments
+    .filter((comment) => !comment.parent_id)
+    .map((comment) => ({
+      side: "additions",
+      lineNumber: comment.line_number,
+      metadata: { comment, replies: comments.filter((c) => c.parent_id === comment.id) }
+    }));
+}
+
+// Renders a comment thread (top-level comment + replies) for one annotation.
+// `addComment` appends a new reply into the file's live comment list and
+// triggers a fresh annotation render (see renderFileDiffs).
+function makeRenderCommentAnnotation(pr, filePath, addComment) {
+  return (annotation) => {
+    const { comment, replies } = annotation.metadata;
+    const container = document.createElement("div");
+    container.className = "border-t border-neutral-800";
+
+    let replyComposer = null;
+    const showReplyComposer = () => {
+      if (replyComposer) return;
+      replyComposer = buildCommentForm(pr, filePath, comment.line_number, comment.id, (reply) => {
+        replyComposer.remove();
+        replyComposer = null;
+        addComment(reply);
+      });
+      container.appendChild(replyComposer);
+    };
+
+    container.appendChild(renderCommentRow(comment, { actions: [ { label: "Reply", onClick: showReplyComposer } ] }));
+    replies.forEach((reply) => container.appendChild(renderCommentRow(reply, { indent: true })));
+
+    return container;
+  };
 }
 
 function buildMarkReviewedForm(pr) {
@@ -35,17 +113,20 @@ function buildMarkReviewedForm(pr) {
 
 // Submits via fetch instead of a native form post so adding a comment
 // updates just this file's annotations, not a full Turbo page visit.
-function buildCommentForm(pr, filePath, lineNumber, onCreated) {
+// The caller owns removing the form on success (a top-level comment composer
+// and a reply composer track their own open-form state independently).
+function buildCommentForm(pr, filePath, lineNumber, parentId, onCreated) {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
+  const isReply = parentId != null;
 
   const form = document.createElement("form");
   form.dataset.role = "comment-form";
   form.className = "px-4 py-2 border-t border-neutral-800 flex items-center gap-2";
   form.innerHTML = `
-    <span class="muted text-xs font-mono">line ${lineNumber}</span>
-    <input type="text" name="body" placeholder="Add a comment" required autofocus
+    <span class="muted text-xs font-mono">${isReply ? "reply" : `line ${lineNumber}`}</span>
+    <input type="text" name="body" placeholder="${isReply ? "Write a reply" : "Add a comment"}" required autofocus
       class="field-input flex-1 mt-0">
-    <button type="submit" class="btn-ghost">Comment</button>
+    <button type="submit" class="btn-ghost">${isReply ? "Reply" : "Comment"}</button>
     <button type="button" data-role="cancel-comment"
       class="text-xs font-mono text-neutral-500 hover:text-neutral-200 bg-transparent border-0 cursor-pointer">Cancel</button>
     <span data-role="comment-error" class="text-xs font-mono text-red-400"></span>
@@ -67,7 +148,7 @@ function buildCommentForm(pr, filePath, lineNumber, onCreated) {
         "X-CSRF-Token": csrfToken
       },
       body: JSON.stringify({
-        comment: { pull_request_id: pr.id, file_path: filePath, line_number: lineNumber, body: bodyInput.value }
+        comment: { pull_request_id: pr.id, file_path: filePath, line_number: lineNumber, parent_id: parentId, body: bodyInput.value }
       })
     });
 
@@ -78,7 +159,6 @@ function buildCommentForm(pr, filePath, lineNumber, onCreated) {
     }
 
     onCreated(await response.json());
-    form.remove();
   });
 
   return form;
@@ -88,7 +168,7 @@ function commentsByFile(comments) {
   const byFile = new Map();
   comments.forEach((comment) => {
     const forFile = byFile.get(comment.file_path) || [];
-    forFile.push({ side: "additions", lineNumber: comment.line_number, metadata: comment });
+    forFile.push(comment);
     byFile.set(comment.file_path, forFile);
   });
   return byFile;
@@ -104,25 +184,32 @@ function renderFileDiffs(filesWrapper, files, commentOwnerPr) {
     const fileContainer = document.createElement("div");
     filesWrapper.appendChild(fileContainer);
 
-    let annotations = commentsForFile.get(fileDiff.name) || [];
+    let comments = commentsForFile.get(fileDiff.name) || [];
     let openComposer = null;
     let diff;
+
+    const addComment = (comment) => {
+      // FileDiff.render only detects annotation changes by array identity,
+      // so a fresh array (not an in-place push) is required here.
+      comments = [ ...comments, comment ];
+      diff.render({ fileDiff, fileContainer, lineAnnotations: buildThreadAnnotations(comments) });
+    };
+
     diff = new FileDiff({
       themeType: "dark",
-      renderAnnotation: renderCommentAnnotation,
+      renderAnnotation: makeRenderCommentAnnotation(commentOwnerPr, fileDiff.name, addComment),
       lineHoverHighlight: "number",
       onLineNumberClick: ({ lineNumber }) => {
         if (openComposer) openComposer.remove();
-        openComposer = buildCommentForm(commentOwnerPr, fileDiff.name, lineNumber, (comment) => {
-          // FileDiff.render only detects annotation changes by array identity,
-          // so a fresh array (not an in-place push) is required here.
-          annotations = [ ...annotations, { side: "additions", lineNumber: comment.line_number, metadata: comment } ];
-          diff.render({ fileDiff, fileContainer, lineAnnotations: annotations });
+        openComposer = buildCommentForm(commentOwnerPr, fileDiff.name, lineNumber, null, (comment) => {
+          openComposer.remove();
+          openComposer = null;
+          addComment(comment);
         });
         fileContainer.after(openComposer);
       }
     });
-    diff.render({ fileDiff, fileContainer, lineAnnotations: annotations });
+    diff.render({ fileDiff, fileContainer, lineAnnotations: buildThreadAnnotations(comments) });
     ensureCoreCSS(fileContainer);
   });
 }

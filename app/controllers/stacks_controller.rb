@@ -31,7 +31,19 @@ class StacksController < ApplicationController
       diff: DiffFetcher.call(pr),
       stale_for_current_user: review_state.nil? || review_state.stale?,
       conflicted: pr.mergeable_state == "dirty",
-      comments: pr.comments.map { |c| { file_path: c.file_path, line_number: c.line_number, body: c.body, author: c.user.email_address } }
+      comments: pr.comments.map { |c| comment_json(c) }
+    }
+  end
+
+  def comment_json(comment)
+    {
+      id: comment.id,
+      parent_id: comment.parent_id,
+      file_path: comment.file_path,
+      line_number: comment.line_number,
+      body: comment.body,
+      author: comment.user.email_address,
+      editable: comment.user_id == Current.user.id
     }
   end
 end

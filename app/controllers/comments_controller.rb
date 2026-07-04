@@ -20,10 +20,18 @@ class CommentsController < ApplicationController
   private
 
   def comment_params
-    params.require(:comment).permit(:pull_request_id, :file_path, :line_number, :body)
+    params.require(:comment).permit(:pull_request_id, :file_path, :line_number, :body, :parent_id)
   end
 
   def comment_json(comment)
-    { file_path: comment.file_path, line_number: comment.line_number, body: comment.body, author: comment.user.email_address }
+    {
+      id: comment.id,
+      parent_id: comment.parent_id,
+      file_path: comment.file_path,
+      line_number: comment.line_number,
+      body: comment.body,
+      author: comment.user.email_address,
+      editable: comment.user_id == Current.user.id
+    }
   end
 end
