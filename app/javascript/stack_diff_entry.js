@@ -41,6 +41,56 @@ function buildActionsMenu(actions) {
   return wrapper;
 }
 
+// Swaps the comment body text for an inline input, PATCHing on save.
+// `text` is the row's text container (author + body); `bodySpan` is the
+// body-only child that gets replaced with the editor and restored after.
+function startEditingComment(text, bodySpan, comment) {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
+
+  const editor = document.createElement("span");
+  editor.className = "inline-flex items-center gap-2";
+  editor.innerHTML = `
+    <input type="text" class="field-input mt-0" style="width: 20rem">
+    <button type="button" data-role="save-edit" class="btn-ghost">Save</button>
+    <button type="button" data-role="cancel-edit"
+      class="text-xs font-mono text-neutral-500 hover:text-neutral-200 bg-transparent border-0 cursor-pointer">Cancel</button>
+    <span data-role="edit-error" class="text-red-400"></span>
+  `;
+
+  const input = editor.querySelector("input");
+  input.value = comment.body;
+  const errorEl = editor.querySelector('[data-role="edit-error"]');
+
+  editor.querySelector('[data-role="cancel-edit"]').addEventListener("click", () => editor.replaceWith(bodySpan));
+
+  editor.querySelector('[data-role="save-edit"]').addEventListener("click", async () => {
+    errorEl.textContent = "";
+
+    const response = await fetch(`/comments/${comment.id}`, {
+      method: "PATCH",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken
+      },
+      body: JSON.stringify({ comment: { body: input.value } })
+    });
+
+    if (!response.ok) {
+      const { errors } = await response.json().catch(() => ({ errors: [ "Couldn't save comment" ] }));
+      errorEl.textContent = (errors || []).join(", ");
+      return;
+    }
+
+    const updated = await response.json();
+    comment.body = updated.body;
+    bodySpan.textContent = updated.body;
+    editor.replaceWith(bodySpan);
+  });
+
+  bodySpan.replaceWith(editor);
+}
+
 function renderCommentRow(comment, { indent = false, actions = [] } = {}) {
   const row = document.createElement("div");
   row.dataset.commentId = comment.id;
@@ -54,7 +104,11 @@ function renderCommentRow(comment, { indent = false, actions = [] } = {}) {
   text.appendChild(bodySpan);
   row.appendChild(text);
 
-  if (actions.length > 0) row.appendChild(buildActionsMenu(actions));
+  const allActions = comment.editable
+    ? [ ...actions, { label: "Edit", onClick: () => startEditingComment(text, bodySpan, comment) } ]
+    : actions;
+
+  if (allActions.length > 0) row.appendChild(buildActionsMenu(allActions));
 
   return row;
 }

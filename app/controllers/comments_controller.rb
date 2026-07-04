@@ -17,6 +17,17 @@ class CommentsController < ApplicationController
     end
   end
 
+  def update
+    comment = Comment.find(params[:id])
+    return head :forbidden unless comment.user == Current.user
+
+    if comment.update(params.require(:comment).permit(:body))
+      render json: comment_json(comment)
+    else
+      render json: { errors: comment.errors.full_messages }, status: :unprocessable_entity
+    end
+  end
+
   private
 
   def comment_params

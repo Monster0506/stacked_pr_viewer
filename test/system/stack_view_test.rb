@@ -92,6 +92,66 @@ class StackViewTest < ApplicationSystemTestCase
     assert_equal top_level, reply.parent
   end
 
+  test "editing your own comment updates its body" do
+    user = User.create!(email_address: "u@example.com", password: "password123")
+    repo = RepoConfig.create!(owner: "acme", name: "widgets", access_token: "ghp_x")
+    pr = PullRequest.create!(repo_config: repo, number: 1, title: "Add feature", author: "octocat", base_branch: "main", head_branch: "feat", base_sha: "aaa", head_sha: "bbb", state: "open")
+    stack = repo.stacks.create!
+    stack.stack_memberships.create!(pull_request: pr, position: 0)
+    comment = Comment.create!(user: user, pull_request: pr, file_path: "file.rb", line_number: 1, body: "origianl typo")
+
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/compare/aaa...bbb")
+      .to_return(status: 200, body: "diff --git a/file.rb b/file.rb\nindex 0000000..1111111 100644\n--- a/file.rb\n+++ b/file.rb\n@@ -1 +1,2 @@\n line one\n+added line\n")
+
+    visit new_session_path
+    fill_in "Email address", with: user.email_address
+    fill_in "Password", with: "password123"
+    click_button "Sign in"
+    assert_current_path root_path
+
+    visit stack_path(stack)
+    assert_text "origianl typo"
+
+    within("[data-comment-id='#{comment.id}']") do
+      click_button "…"
+      click_button "Edit"
+      find("input[type='text']").set("original, fixed")
+      click_button "Save"
+    end
+
+    assert_text "original, fixed"
+    assert_no_text "origianl typo"
+    assert_equal "original, fixed", comment.reload.body
+  end
+
+  test "a user cannot edit someone else's comment" do
+    user = User.create!(email_address: "u@example.com", password: "password123")
+    other_user = User.create!(email_address: "other@example.com", password: "password123")
+    repo = RepoConfig.create!(owner: "acme", name: "widgets", access_token: "ghp_x")
+    pr = PullRequest.create!(repo_config: repo, number: 1, title: "Add feature", author: "octocat", base_branch: "main", head_branch: "feat", base_sha: "aaa", head_sha: "bbb", state: "open")
+    stack = repo.stacks.create!
+    stack.stack_memberships.create!(pull_request: pr, position: 0)
+    comment = Comment.create!(user: other_user, pull_request: pr, file_path: "file.rb", line_number: 1, body: "someone else's comment")
+
+    stub_request(:get, "https://api.github.com/repos/acme/widgets/compare/aaa...bbb")
+      .to_return(status: 200, body: "diff --git a/file.rb b/file.rb\nindex 0000000..1111111 100644\n--- a/file.rb\n+++ b/file.rb\n@@ -1 +1,2 @@\n line one\n+added line\n")
+
+    visit new_session_path
+    fill_in "Email address", with: user.email_address
+    fill_in "Password", with: "password123"
+    click_button "Sign in"
+    assert_current_path root_path
+
+    visit stack_path(stack)
+    assert_text "someone else's comment"
+
+    within("[data-comment-id='#{comment.id}']") do
+      click_button "…"
+      assert_no_button "Edit"
+      assert_button "Reply"
+    end
+  end
+
   test "marking a PR reviewed clears its stale badge" do
     user = User.create!(email_address: "u@example.com", password: "password123")
     repo = RepoConfig.create!(owner: "acme", name: "widgets", access_token: "ghp_x")

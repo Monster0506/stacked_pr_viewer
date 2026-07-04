@@ -63,4 +63,33 @@ class CommentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert JSON.parse(response.body)["errors"].present?
   end
+
+  test "the owner can edit their comment's body" do
+    comment = Comment.create!(user: @user, pull_request: @pr, file_path: "file.rb", line_number: 3, body: "original")
+
+    patch comment_url(comment), params: { comment: { body: "edited" } }, as: :json
+
+    assert_response :success
+    assert_equal "edited", comment.reload.body
+    assert_equal "edited", JSON.parse(response.body)["body"]
+  end
+
+  test "editing rejects a blank body" do
+    comment = Comment.create!(user: @user, pull_request: @pr, file_path: "file.rb", line_number: 3, body: "original")
+
+    patch comment_url(comment), params: { comment: { body: "" } }, as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal "original", comment.reload.body
+  end
+
+  test "a user cannot edit another user's comment" do
+    other_user = User.create!(email_address: "other@example.com", password: "password123")
+    comment = Comment.create!(user: other_user, pull_request: @pr, file_path: "file.rb", line_number: 3, body: "original")
+
+    patch comment_url(comment), params: { comment: { body: "hijacked" } }, as: :json
+
+    assert_response :forbidden
+    assert_equal "original", comment.reload.body
+  end
 end
