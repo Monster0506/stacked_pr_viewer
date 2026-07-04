@@ -1,12 +1,27 @@
-<h1>Tracked repos</h1>
-<% @repo_configs.each do |repo| %>
-  <h2><%= repo.full_name %></h2>
-  <% if repo.last_sync_failed_at.present? %>
-    <div class="banner banner-error">
-      Last sync failed at <%= repo.last_sync_failed_at %>: <%= repo.last_sync_error %>
-    </div>
-  <% end %>
-  <%= turbo_stream_from repo %>
-  <%= render "stacks", repo_config: repo %>
+<div class="flex items-center justify-between mb-8">
+  <h1 class="page-title">Tracked repos</h1>
+  <%= link_to "Add a repo", new_repo_config_path, class: "btn-primary" %>
+</div>
+
+<% if @repo_configs.empty? %>
+  <p class="muted font-mono text-sm">No repos tracked yet.</p>
 <% end %>
-<%= link_to "Add a repo", new_repo_config_path %>
+
+<div class="space-y-8">
+  <% @repo_configs.each do |repo| %>
+    <section>
+      <h2 class="font-mono text-sm text-neutral-400 mb-2">
+        <span class="text-sky-400">&gt;</span> <%= repo.full_name %>
+      </h2>
+
+      <% if repo.last_sync_failed_at.present? %>
+        <div class="banner-error mb-3">
+          Last sync failed at <%= repo.last_sync_failed_at %>: <%= repo.last_sync_error %>
+        </div>
+      <% end %>
+
+      <%= turbo_stream_from repo %>
+      <%= render "stacks", repo_config: repo %>
+    </section>
+  <% end %>
+</div>

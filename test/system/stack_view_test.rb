@@ -12,8 +12,8 @@ class StackViewTest < ApplicationSystemTestCase
       .to_return(status: 200, body: "diff --git a/file.rb b/file.rb\nindex 0000000..1111111 100644\n--- a/file.rb\n+++ b/file.rb\n@@ -1 +1,2 @@\n line one\n+added line\n")
 
     visit new_session_path
-    fill_in "Enter your email address", with: user.email_address
-    fill_in "Enter your password", with: "password123"
+    fill_in "Email address", with: user.email_address
+    fill_in "Password", with: "password123"
     click_button "Sign in"
 
     assert_current_path root_path

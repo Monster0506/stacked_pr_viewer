@@ -1,1 +1,40 @@
 @import "tailwindcss";
+
+@layer components {
+  .field-input {
+    @apply block w-full rounded-md bg-neutral-900 border border-neutral-800 text-neutral-200 placeholder-neutral-600 px-3 py-2 mt-1.5 font-mono text-sm;
+    @apply focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600;
+  }
+
+  .field-label {
+    @apply text-xs font-mono uppercase tracking-wider text-neutral-500;
+  }
+
+  .btn-primary {
+    @apply inline-block rounded-md px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm cursor-pointer transition-colors;
+  }
+
+  .btn-ghost {
+    @apply inline-block rounded-md px-3 py-1.5 text-sm text-neutral-400 hover:text-neutral-100 border border-neutral-800 hover:border-neutral-600 cursor-pointer transition-colors;
+  }
+
+  .card {
+    @apply bg-neutral-900 border border-neutral-800 rounded-lg;
+  }
+
+  .banner-error {
+    @apply bg-red-950 border border-red-900 text-red-300 rounded-md px-3 py-2 text-sm font-mono;
+  }
+
+  .banner-notice {
+    @apply bg-sky-950 border border-sky-900 text-sky-300 rounded-md px-3 py-2 text-sm;
+  }
+
+  .page-title {
+    @apply text-xl font-semibold text-neutral-100 tracking-tight;
+  }
+
+  .muted {
+    @apply text-neutral-500;
+  }
+}

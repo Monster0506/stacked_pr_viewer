@@ -1,6 +1,15 @@
-<%= form_with model: repo_config do |f| %>
-  <div><%= f.label :owner %><%= f.text_field :owner %></div>
-  <div><%= f.label :name %><%= f.text_field :name %></div>
-  <div><%= f.label :access_token, "GitHub PAT" %><%= f.password_field :access_token %></div>
-  <%= f.submit "Add repo" %>
+<%= form_with model: repo_config, class: "space-y-4" do |f| %>
+  <div>
+    <%= f.label :owner, class: "field-label" %>
+    <%= f.text_field :owner, placeholder: "e.g. rails", class: "field-input" %>
+  </div>
+  <div>
+    <%= f.label :name, class: "field-label" %>
+    <%= f.text_field :name, placeholder: "e.g. rails", class: "field-input" %>
+  </div>
+  <div>
+    <%= f.label :access_token, "GitHub PAT", class: "field-label" %>
+    <%= f.password_field :access_token, placeholder: "ghp_...", class: "field-input" %>
+  </div>
+  <%= f.submit "Add repo", class: "btn-primary" %>
 <% end %>

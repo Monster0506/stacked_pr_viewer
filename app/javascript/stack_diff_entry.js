@@ -35,15 +35,24 @@ async function renderStack() {
 
   parsedByPr.forEach(({ pr, parsed }) => {
     const prContainer = document.createElement("div");
-    prContainer.className = "pr-diff";
-    prContainer.innerHTML = `<h3>#${pr.number} ${pr.title} (${pr.author})</h3>`;
+    prContainer.className = "card overflow-hidden";
+
+    const header = document.createElement("div");
+    header.className = "px-4 py-3 border-b border-neutral-800 font-mono text-sm text-neutral-300";
+    header.innerHTML = `<span class="text-neutral-600">#${pr.number}</span> ${pr.title} <span class="text-neutral-600 text-xs">(${pr.author})</span>`;
+    prContainer.appendChild(header);
+
     container.appendChild(prContainer);
+
+    const filesWrapper = document.createElement("div");
+    filesWrapper.className = "divide-y divide-neutral-800";
+    prContainer.appendChild(filesWrapper);
 
     parsed.files.forEach((fileDiff) => {
       const fileContainer = document.createElement("div");
-      prContainer.appendChild(fileContainer);
+      filesWrapper.appendChild(fileContainer);
 
-      const diff = new FileDiff();
+      const diff = new FileDiff({ themeType: "dark" });
       diff.render({ fileDiff, fileContainer });
       ensureCoreCSS(fileContainer);
     });
