@@ -1,12 +1,36 @@
 import { FileDiff, processPatch, preloadHighlighter, getFiletypeFromFileName, DEFAULT_THEMES, wrapCoreCSS } from "@pierre/diffs";
 
+// Plain CSS (not Tailwind) matching the app's neutral-500/neutral-200 shades:
+// the diff's shadow root is style-encapsulated from our page's Tailwind
+// stylesheet, so anything inserted directly into it (like the "..." button
+// below) needs its own rules injected here, or it falls back to the
+// browser's default button chrome.
+const THREAD_ACTIONS_BUTTON_CSS = `
+  [data-role="thread-actions-button"] {
+    all: unset;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    cursor: pointer;
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    line-height: 1;
+    padding: 0.125rem 0;
+    color: #737373;
+  }
+  [data-role="thread-actions-button"]:hover {
+    color: #e5e5e5;
+  }
+`;
+
 function ensureCoreCSS(fileContainer) {
   const shadowRoot = fileContainer.shadowRoot;
   if (!shadowRoot || shadowRoot.querySelector("style[data-core-css]")) return;
 
   const coreStyle = document.createElement("style");
   coreStyle.setAttribute("data-core-css", "");
-  coreStyle.textContent = wrapCoreCSS("");
+  coreStyle.textContent = wrapCoreCSS(THREAD_ACTIONS_BUTTON_CSS);
   shadowRoot.prepend(coreStyle);
 }
 
@@ -15,13 +39,14 @@ function ensureCoreCSS(fileContainer) {
 // `[data-gutter-buffer="annotation"]` element in the diff's shadow DOM -- see
 // wireThreadActionButtons), so it lands in the actual gutter/number column
 // rather than floating over the comment text or fighting shadow-DOM stacking.
+// Styling comes from THREAD_ACTIONS_BUTTON_CSS (see ensureCoreCSS), not
+// Tailwind classes, since this button lives inside the shadow root.
 function buildThreadActionsButton() {
   const button = document.createElement("button");
   button.type = "button";
   button.dataset.role = "thread-actions-button";
   button.textContent = "...";
   button.setAttribute("aria-label", "Comment actions");
-  button.className = "block w-full text-center bg-neutral-900 border border-neutral-700 text-neutral-300 hover:text-neutral-100 hover:border-neutral-500 text-[10px] font-mono leading-none py-0.5 cursor-pointer";
   return button;
 }
 
