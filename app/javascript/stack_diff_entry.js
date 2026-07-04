@@ -330,9 +330,16 @@ function renderFileDiffs(filesWrapper, files, commentOwnerPr) {
     // Pairs each thread's queued button setup with @pierre/diffs' own blank
     // gutter cell for that row (a real `[data-gutter-buffer="annotation"]`
     // element), so the "..." button is inserted directly into the gutter
-    // instead of floating over the comment text.
+    // instead of floating over the comment text. Our comments are always
+    // additions-side, but for changed (not purely added) lines the library
+    // also inserts a matching blank annotation cell on the deletions side
+    // (to keep both columns row-aligned) -- that side renders first in DOM
+    // order, so the query must be scoped to the additions column specifically
+    // or its placeholder cells would steal our buttons.
     const wireThreadActionButtons = () => {
-      const gutterCells = Array.from(fileContainer.shadowRoot?.querySelectorAll('[data-gutter-buffer="annotation"]') || []);
+      const additionsCode = fileContainer.shadowRoot?.querySelector("code[data-additions]");
+      const scope = additionsCode || fileContainer.shadowRoot;
+      const gutterCells = Array.from(scope?.querySelectorAll('[data-gutter-buffer="annotation"]') || []);
       pendingButtonSetups.forEach((setup, index) => {
         const gutterCell = gutterCells[index];
         if (gutterCell) setup(gutterCell);
