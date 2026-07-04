@@ -10,7 +10,19 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_04_042814) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_04_043300) do
+  create_table "comments", force: :cascade do |t|
+    t.text "body"
+    t.datetime "created_at", null: false
+    t.string "file_path"
+    t.integer "line_number"
+    t.integer "pull_request_id", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["pull_request_id"], name: "index_comments_on_pull_request_id"
+    t.index ["user_id"], name: "index_comments_on_user_id"
+  end
+
   create_table "pull_requests", force: :cascade do |t|
     t.string "author", null: false
     t.string "base_branch", null: false
@@ -33,6 +45,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_042814) do
     t.string "name"
     t.string "owner"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "review_states", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "last_viewed_sha"
+    t.integer "pull_request_id", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["pull_request_id"], name: "index_review_states_on_pull_request_id"
+    t.index ["user_id", "pull_request_id"], name: "index_review_states_on_user_id_and_pull_request_id", unique: true
+    t.index ["user_id"], name: "index_review_states_on_user_id"
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -70,7 +93,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_042814) do
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
   end
 
+  add_foreign_key "comments", "pull_requests"
+  add_foreign_key "comments", "users"
   add_foreign_key "pull_requests", "repo_configs"
+  add_foreign_key "review_states", "pull_requests"
+  add_foreign_key "review_states", "users"
   add_foreign_key "sessions", "users"
   add_foreign_key "stack_memberships", "pull_requests"
   add_foreign_key "stack_memberships", "stacks"
