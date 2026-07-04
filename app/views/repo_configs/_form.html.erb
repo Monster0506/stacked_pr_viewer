@@ -1,0 +1,6 @@
+<%= form_with model: repo_config do |f| %>
+  <div><%= f.label :owner %><%= f.text_field :owner %></div>
+  <div><%= f.label :name %><%= f.text_field :name %></div>
+  <div><%= f.label :access_token, "GitHub PAT" %><%= f.password_field :access_token %></div>
+  <%= f.submit "Add repo" %>
+<% end %>
