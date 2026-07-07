@@ -126,10 +126,26 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install JS dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: npm ci
 
+      - name: Cache stack diff JS bundle
+        id: stack-diff-cache
+        uses: actions/cache@v4
+        with:
+          path: app/assets/builds/stack_diff.js
+          key: stack-diff-js-${{ runner.os }}-${{ hashFiles('app/javascript/**', 'package-lock.json') }}
+
       - name: Build stack diff JS bundle
+        if: steps.stack-diff-cache.outputs.cache-hit != 'true'
         run: npm run build:stack-diff
 
       - name: Run System Tests
