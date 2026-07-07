@@ -53,7 +53,7 @@ jobs:
           bundler-cache: true
 
       - name: Prepare RuboCop cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         env:
           DEPENDENCIES_HASH: ${{ hashFiles('.ruby-version', '**/.rubocop.yml', '**/.rubocop_todo.yml', 'Gemfile.lock') }}
         with:
@@ -128,7 +128,7 @@ jobs:
 
       - name: Cache node_modules
         id: node-modules-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -139,7 +139,7 @@ jobs:
 
       - name: Cache stack diff JS bundle
         id: stack-diff-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: app/assets/builds/stack_diff.js
           key: stack-diff-js-${{ runner.os }}-${{ hashFiles('app/javascript/**', 'package-lock.json') }}
