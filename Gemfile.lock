@@ -203,7 +203,7 @@ GEM
       racc (~> 1.4)
     nokogiri (1.19.4-x86_64-linux-gnu)
       racc (~> 1.4)
-    octokit (9.2.0)
+    octokit (10.0.0)
       faraday (>= 1, < 3)
       sawyer (~> 0.9)
     ostruct (0.6.3)
@@ -402,7 +402,7 @@ DEPENDENCIES
   importmap-rails
   jbuilder
   kamal
-  octokit (~> 9.0)
+  octokit (~> 10.0)
   propshaft
   puma (>= 5.0)
   rails (~> 8.1.3)
