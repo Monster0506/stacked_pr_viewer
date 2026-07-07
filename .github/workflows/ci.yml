@@ -114,6 +114,18 @@ jobs:
         with:
           bundler-cache: true
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Build stack diff JS bundle
+        run: npm run build:stack-diff
+
       - name: Run System Tests
         env:
           RAILS_ENV: test
