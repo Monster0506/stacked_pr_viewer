@@ -21,7 +21,7 @@ class StackDetectorTest < ActiveSupport::TestCase
 
     stack = Stack.sole
     ordered_prs = stack.stack_memberships.order(:position).map(&:pull_request)
-    assert_equal [pr1, pr2, pr3], ordered_prs
+    assert_equal [ pr1, pr2, pr3 ], ordered_prs
   end
 
   test "independent PRs (base == main) each get their own single-PR stack" do
@@ -31,7 +31,7 @@ class StackDetectorTest < ActiveSupport::TestCase
     StackDetector.call(@repo)
 
     assert_equal 2, Stack.count
-    assert_equal [1, 1], Stack.all.map { |s| s.stack_memberships.count }
+    assert_equal [ 1, 1 ], Stack.all.map { |s| s.stack_memberships.count }
   end
 
   test "orphaned PR whose base branch matches no other PR's head still gets its own stack" do
